@@ -1,4 +1,4 @@
-import { App, Notice, Plugin, WorkspaceLeaf } from "obsidian";
+import { App, Notice, Platform, Plugin, WorkspaceLeaf } from "obsidian";
 import { AIChatSettingTab } from "../ui/settings";
 import { AIChatView, VIEW_TYPE_AI_CHAT } from "../ui/view";
 import { AIChatSettings, ModelConfig, DEFAULT_SETTINGS } from "./types";
@@ -15,11 +15,14 @@ class ApiKeyStorage {
   /**
    * 获取或生成设备特定的加密密钥
    */
-  private static async getDeviceKey(): Promise<CryptoKey> {
+  private static async getDeviceKey(app: App): Promise<CryptoKey> {
     // 使用设备特定的信息生成密钥
+    const platformStr = [
+      Platform.isDesktop ? "desktop" : "mobile",
+      Platform.isMacOS ? "mac" : Platform.isWin ? "win" : Platform.isLinux ? "linux" : "other",
+    ].join("-");
     const deviceInfo = [
-      navigator.userAgent,
-      navigator.language,
+      platformStr,
       screen.width.toString(),
       screen.height.toString(),
       new Date().getTimezoneOffset().toString(),
@@ -35,13 +38,13 @@ class ApiKeyStorage {
     );
 
     // 获取或生成 salt
-    let salt = localStorage.getItem(this.SALT_KEY);
+    let salt = app.loadLocalStorage(this.SALT_KEY) as string | null;
     if (!salt) {
       const saltArray = crypto.getRandomValues(new Uint8Array(16));
       salt = Array.from(saltArray)
         .map((b) => b.toString(16).padStart(2, "0"))
         .join("");
-      localStorage.setItem(this.SALT_KEY, salt);
+      app.saveLocalStorage(this.SALT_KEY, salt);
     }
 
     return crypto.subtle.deriveKey(
@@ -61,8 +64,8 @@ class ApiKeyStorage {
   /**
    * 加密 API Key
    */
-  static async encryptApiKey(apiKey: string): Promise<string> {
-    const key = await this.getDeviceKey();
+  static async encryptApiKey(apiKey: string, app: App): Promise<string> {
+    const key = await this.getDeviceKey(app);
     const encoder = new TextEncoder();
     const iv = crypto.getRandomValues(new Uint8Array(12));
 
@@ -84,9 +87,9 @@ class ApiKeyStorage {
   /**
    * 解密 API Key
    */
-  static async decryptApiKey(encryptedApiKey: string): Promise<string> {
+  static async decryptApiKey(encryptedApiKey: string, app: App): Promise<string> {
     try {
-      const key = await this.getDeviceKey();
+      const key = await this.getDeviceKey(app);
       const combined = Uint8Array.from(atob(encryptedApiKey), (c) => c.charCodeAt(0));
 
       const iv = combined.slice(0, 12);
@@ -167,7 +170,7 @@ export default class AIChatPlugin extends Plugin {
    * 保存 API Key (加密存储)
    */
   async saveApiKey(modelId: string, apiKey: string): Promise<void> {
-    const encrypted = await ApiKeyStorage.encryptApiKey(apiKey);
+    const encrypted = await ApiKeyStorage.encryptApiKey(apiKey, this.app);
     // 存储加密后的数据到 settings
     if (!this.settings.encryptedApiKeys) {
       this.settings.encryptedApiKeys = {};
@@ -182,7 +185,7 @@ export default class AIChatPlugin extends Plugin {
   async loadApiKey(modelId: string): Promise<string> {
     const encrypted = this.settings.encryptedApiKeys?.[modelId];
     if (!encrypted) return "";
-    return await ApiKeyStorage.decryptApiKey(encrypted);
+    return await ApiKeyStorage.decryptApiKey(encrypted, this.app);
   }
 
   /**
