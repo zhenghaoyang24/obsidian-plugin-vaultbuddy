@@ -14,7 +14,7 @@
 
 ## Features
 
-**VaultTalk** turns your Obsidian vault into an intelligent Q&A system. No more manually sifting through hundreds of notes—just ask a question, and the AI will answer based on your actual content. The plugin automatically reads your entire vault, identifies the most relevant passages for your query, and sends them as context to the AI model—so every answer is grounded in your notes. Whether you're trying to locate specific information scattered across files, connect ideas from different notes, or need a summary or suggestion for something you've written, VaultTalk finds and cites the relevant sources for you. It supports multiple AI providers (DeepSeek, OpenAI, Groq, or any OpenAI-compatible API), lets you switch models on the fly, and stores your API key locally with encryption so it never gets synced. All conversations are automatically saved.
+**VaultTalk** turns your Obsidian vault into an intelligent Q&A system. Simply ask a question, and the AI automatically retrieves the most relevant passages from your notes as context to provide grounded answers. It helps you locate scattered information, connect ideas across different notes, or generate summaries and suggestions—with automatic source citations. Compatible with any API endpoint that supports curl calls, you can configure multiple models and switch between them on the fly. API keys are stored locally with encryption, and all conversations are automatically saved.
 
 ---
 
