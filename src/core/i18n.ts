@@ -1,0 +1,186 @@
+/**
+ * Simple i18n module for VaultTalk
+ */
+
+export type Lang = "zh" | "en";
+
+const strings: Record<Lang, Record<string, string>> = {
+  zh: {
+    // View
+    "view.title": "VaultTalk",
+    "view.input.placeholder": "输入消息...",
+    "view.send": "发送",
+    "view.stop": "终止",
+    "view.thinking": "思考中...",
+    "view.buildingContext": "正在构建知识库...",
+    "view.thinkingLabel": "正在思考...",
+    "view.stopped": "— 已被用户终止 —",
+    "view.copy": "复制",
+    "view.copied": "已复制",
+    "view.fill": "填入",
+    "view.selectModel": "选择模型",
+    "view.history": "历史对话",
+    "view.newChat": "新对话",
+    "view.noHistory": "暂无历史对话",
+    "view.newConversation": "新对话",
+    "view.historyTitle": "历史对话",
+    "view.msgCount": "条消息",
+    "view.deleted": "已删除对话",
+
+    // Settings
+    "settings.models": "模型配置",
+    "settings.addModel": "+ 添加模型",
+    "settings.defaultModel": "默认模型",
+    "settings.defaultModelDesc": "打开新对话时默认使用的模型",
+    "settings.maxTokens": "最大回复 Token 数",
+    "settings.maxTokensDesc": "控制 AI 回答的最大长度，推荐 4096-8192。",
+    "settings.customRules": "自定义规则",
+    "settings.customRulesDesc": "附加到系统提示词的额外指令。",
+    "settings.customRulesPlaceholder": "输入自定义规则...",
+    "settings.resumeLast": "启动时恢复上次对话",
+    "settings.resumeLastDesc": "打开插件时自动加载上次退出的对话记录，关闭则每次从新对话开始。",
+    "settings.noModels": "暂无模型，点击上方按钮添加",
+    "settings.modelName": "显示名称",
+    "settings.baseUrl": "Base URL（cURL 兼容）",
+    "settings.apiKey": "API Key",
+    "settings.modelId": "模型 ID",
+    "settings.contextWindow": "上下文窗口 Token",
+    "settings.edit": "编辑",
+    "settings.save": "保存",
+    "settings.delete": "删除",
+    "settings.test": "测试",
+    "settings.testing": "测试中...",
+    "settings.cancel": "取消",
+    "settings.newModel": "新模型（未保存）",
+    "settings.fillAll": "请填写所有字段后保存",
+    "settings.complete": "配置完整，可以保存",
+    "settings.incomplete": "⚠️ 请填写所有字段",
+    "settings.saveModel": "保存模型",
+    "settings.confirmDelete": "确认删除",
+    "settings.deleteMsg": "确定要删除模型",
+    "settings.irreversible": "此操作不可恢复。",
+    "settings.confirmDeleteBtn": "确认删除",
+    "settings.testSuccess": "✅ 连接成功",
+    "settings.testFail": "❌ 连接失败，请检查配置",
+    "settings.fillAllFields": "⚠️ 请填写所有字段后再保存",
+    "settings.modelAdded": "✅ 模型已添加",
+    "settings.unnamed": "未命名模型",
+    "settings.addTime": "添加于",
+    "settings.modelNamePlaceholder": "DeepSeek V4 Pro",
+    "settings.baseUrlPlaceholder": "https://api.deepseek.com/chat/completions",
+    "settings.apiKeyPlaceholder": "sk-...",
+    "settings.modelIdPlaceholder": "deepseek-chat",
+    "settings.contextWindowPlaceholder": "默认 131072（推荐 65536-131072）",
+    "settings.maxTokensPlaceholder": "4096",
+
+    // Notices
+    "notice.noModel": "请先在设置中配置模型",
+    "notice.noApiKey": "请先在设置中配置 API Key",
+    "notice.apiFail": "AI 调用失败:",
+    "notice.connectionTestNeedsConfig": "请先填写完整的模型信息再测试",
+  },
+
+  en: {
+    // View
+    "view.title": "VaultTalk",
+    "view.input.placeholder": "Type a message...",
+    "view.send": "Send",
+    "view.stop": "Stop",
+    "view.thinking": "Thinking...",
+    "view.buildingContext": "Building knowledge base...",
+    "view.thinkingLabel": "Thinking...",
+    "view.stopped": "— Stopped by user —",
+    "view.copy": "Copy",
+    "view.copied": "Copied",
+    "view.fill": "Quote",
+    "view.selectModel": "Select Model",
+    "view.history": "History",
+    "view.newChat": "New Chat",
+    "view.noHistory": "No conversation history",
+    "view.newConversation": "New Chat",
+    "view.historyTitle": "History",
+    "view.msgCount": "messages",
+    "view.deleted": "Conversation deleted",
+
+    // Settings
+    "settings.models": "Model Configuration",
+    "settings.addModel": "+ Add Model",
+    "settings.defaultModel": "Default Model",
+    "settings.defaultModelDesc": "Model used when starting a new conversation.",
+    "settings.maxTokens": "Max Response Tokens",
+    "settings.maxTokensDesc": "Maximum length of AI responses. Recommended 4096-8192.",
+    "settings.customRules": "Custom Rules",
+    "settings.customRulesDesc": "Additional instructions appended to the system prompt.",
+    "settings.customRulesPlaceholder": "Enter custom rules...",
+    "settings.resumeLast": "Resume last conversation on startup",
+    "settings.resumeLastDesc":
+      "Automatically load the previous conversation when opening the plugin.",
+    "settings.noModels": "No models configured. Click the button above to add one.",
+    "settings.modelName": "Display Name",
+    "settings.baseUrl": "Base URL (cURL compatible)",
+    "settings.apiKey": "API Key",
+    "settings.modelId": "Model ID",
+    "settings.contextWindow": "Context Window (Tokens)",
+    "settings.edit": "Edit",
+    "settings.save": "Save",
+    "settings.delete": "Delete",
+    "settings.test": "Test",
+    "settings.testing": "Testing...",
+    "settings.cancel": "Cancel",
+    "settings.newModel": "New Model (unsaved)",
+    "settings.fillAll": "Fill all fields to save",
+    "settings.complete": "Ready to save",
+    "settings.incomplete": "⚠️ Please fill all fields",
+    "settings.saveModel": "Save Model",
+    "settings.confirmDelete": "Confirm Delete",
+    "settings.deleteMsg": "Are you sure you want to delete",
+    "settings.irreversible": "This action cannot be undone.",
+    "settings.confirmDeleteBtn": "Delete",
+    "settings.testSuccess": "✅ Connection successful",
+    "settings.testFail": "❌ Connection failed. Check your config.",
+    "settings.fillAllFields": "⚠️ Please fill all fields before saving",
+    "settings.modelAdded": "✅ Model added",
+    "settings.unnamed": "Unnamed Model",
+    "settings.addTime": "Added on",
+    "settings.modelNamePlaceholder": "DeepSeek V4 Pro",
+    "settings.baseUrlPlaceholder": "https://api.deepseek.com/chat/completions",
+    "settings.apiKeyPlaceholder": "sk-...",
+    "settings.modelIdPlaceholder": "deepseek-chat",
+    "settings.contextWindowPlaceholder": "Default 131072 (recommended 65536-131072)",
+    "settings.maxTokensPlaceholder": "4096",
+
+    // Notices
+    "notice.noModel": "Please configure a model in settings first",
+    "notice.noApiKey": "Please configure API Key in settings first",
+    "notice.apiFail": "AI call failed:",
+    "notice.connectionTestNeedsConfig": "Please fill all model fields before testing",
+  },
+};
+
+let currentLang: Lang = "zh";
+
+export function i18n(key: string): string {
+  return strings[currentLang][key] || strings["en"][key] || key;
+}
+
+export function setLanguage(lang: Lang): void {
+  currentLang = lang;
+}
+
+export function getLanguage(): Lang {
+  return currentLang;
+}
+
+/**
+ * Detect Obsidian's interface language
+ */
+export function detectLanguage(): Lang {
+  try {
+    // Obsidian stores language in localStorage or we can detect from moment
+    const locale = (window as any).moment?.locale?.() || navigator.language || "zh";
+    if (locale.startsWith("zh")) return "zh";
+    return "en";
+  } catch {
+    return "zh";
+  }
+}

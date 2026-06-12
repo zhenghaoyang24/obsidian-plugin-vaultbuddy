@@ -1,0 +1,44 @@
+{
+  "name": "vaulttalk",
+  "version": "1.0.0",
+  "description": "AI-powered chat assistant in Obsidian sidebar. Stream responses, chat with your entire vault as context, and get answers grounded in your notes. Supports OpenAI-compatible APIs (DeepSeek, OpenAI, etc.)",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+    "version": "node version-bump.mjs && git add manifest.json versions.json"
+  },
+  "keywords": [
+    "obsidian",
+    "obsidian-plugin",
+    "ai",
+    "chat",
+    "knowledge-base",
+    "vaulttalk"
+  ],
+  "author": "zhenghaoyang24",
+  "authorUrl": "https://github.com/zhenghaoyang24/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zhenghaoyang24/obsidian-plugin-vaulttalk"
+  },
+  "homepage": "https://github.com/zhenghaoyang24/obsidian-plugin-vaulttalk",
+  "bugs": {
+    "url": "https://github.com/zhenghaoyang24/obsidian-plugin-vaulttalk/issues"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@typescript-eslint/eslint-plugin": "^6.19.0",
+    "@typescript-eslint/parser": "^6.19.0",
+    "builtin-modules": "^3.3.0",
+    "esbuild": "^0.19.11",
+    "obsidian": "latest",
+    "tslib": "2.6.2",
+    "typescript": "5.3.3"
+  },
+  "dependencies": {
+    "gpt-tokenizer": "^2.1.1",
+    "marked": "^18.0.5"
+  }
+}

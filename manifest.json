@@ -1,0 +1,11 @@
+{
+  "id": "vaulttalk",
+  "name": "VaultTalk",
+  "version": "1.0.0",
+  "minAppVersion": "0.15.0",
+  "description": "AI-powered chat assistant in Obsidian sidebar. Stream responses, chat with your entire vault as context, and get answers grounded in your notes. Supports OpenAI-compatible APIs (DeepSeek, OpenAI, etc.)",
+  "author": "zhenghaoyang24",
+  "authorUrl": "https://github.com/zhenghaoyang24/",
+  "fundingUrl": "",
+  "isDesktopOnly": false
+}
