@@ -199,6 +199,11 @@
   text-decoration: underline;
 }
 
+.vaulttalk-folder-link {
+  color: var(--text-muted);
+  cursor: default;
+}
+
 .message.assistant .message-content a {
   color: var(--interactive-accent);
   text-decoration: none;

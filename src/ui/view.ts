@@ -7,6 +7,7 @@ import {
   Modal,
   EventRef,
   TFile,
+  TFolder,
   MarkdownRenderer,
 } from "obsidian";
 import type AIChatPlugin from "../core/main";
@@ -431,19 +432,35 @@ export class AIChatView extends ItemView {
     const messages: ChatMessage[] = [];
 
     // System prompt - guide AI to reference note locations
-    const basePrompt = `You are an Obsidian note assistant. You can answer questions based on the user's notes provided as context.
+    const basePrompt = `You are VaultTalk, an intelligent note assistant embedded in the user's Obsidian vault.
 
-When responding:
-1. Base your answers on the provided note content
-2. Cite specific notes using Obsidian wiki-link syntax: [[path/to/note]]
-3. If the content is not relevant, say so honestly
-4. Use Markdown formatting
-5. IMPORTANT: Always respond in the same language as the user's input`;
+## Core Rules
+- Answer based on the provided vault context and conversation history
+- When citing notes, use Obsidian wiki-link syntax: [[exact/file/path]]
+  - Only link FILES, never folders. Use plain text for folder names
+  - The path must match the exact file path relative to vault root, e.g. [[20-Interview/3.JavaScript/3.异步与事件/节流与防抖]]
+- If the provided context doesn't contain enough information to answer, say so honestly and suggest what the user might look for
+- If the user's question is ambiguous or refers to something unclear, ask for clarification before answering
+- NEVER fabricate information or make up note content
+- Always respond in the same language as the user's input
+
+## Response Style
+- Be concise and direct. Avoid unnecessary preamble
+- When the user asks to summarize, reorganize, or transform content, do it directly without restating the question
+- When referencing specific notes, briefly mention the note path for traceability
+- Use Markdown formatting for readability (headings, lists, code blocks as appropriate)`;
 
     const systemPrompt = this.plugin.settings.customRules
       ? `${basePrompt}\n\n${this.plugin.settings.customRules}`
       : basePrompt;
     messages.push({ role: "system", content: systemPrompt });
+
+    // 注入最近历史对话（最多 20 条，排除最后一条即当前用户消息）
+    const history = this.currentConversation?.messages ?? [];
+    const recentHistory = history.slice(0, -1).slice(-20);
+    for (const msg of recentHistory) {
+      messages.push({ role: msg.role, content: msg.content });
+    }
 
     // 读取全部仓库内容并注入上下文
     try {
@@ -475,19 +492,27 @@ When responding:
   // ==================== 笔记链接处理 ====================
 
   /**
-   * 为生成的笔记链接绑定点击事件，使用 Obsidian 的 openLinkText 解析链接
-   * 能自动处理最短唯一路径、相对路径等场景
+   * 为内部链接绑定点击事件，跳转笔记文件；文件夹则替换为纯文本
    */
   private addNoteLinkHandlers(containerEl: HTMLElement): void {
     const links = containerEl.querySelectorAll("a.internal-link");
     links.forEach((link) => {
       const anchor = link as HTMLAnchorElement;
+      const href = anchor.getAttribute("data-href") || anchor.textContent || "";
+      if (!href) return;
+
+      const resolved = this.app.metadataCache.getFirstLinkpathDest(href, "");
+      if (resolved instanceof TFolder) {
+        const span = document.createElement("span");
+        span.textContent = anchor.textContent || href;
+        span.className = "vaulttalk-folder-link";
+        anchor.replaceWith(span);
+        return;
+      }
+
       anchor.addEventListener("click", (e) => {
         e.preventDefault();
-        const notePath = anchor.getAttribute("data-href") || anchor.textContent || "";
-        if (notePath) {
-          this.app.workspace.openLinkText(notePath, "", false);
-        }
+        this.app.workspace.openLinkText(href, "", false);
       });
     });
   }
