@@ -690,6 +690,10 @@
   align-items: center;
 }
 
+.model-card-toggle-hidden {
+  display: none;
+}
+
 .model-card-valid-indicator {
   padding: 6px 0 0 172px;
   font-size: 12px;
@@ -707,6 +711,13 @@
   color: var(--text-muted);
   font-size: 13px;
   margin-top: 4px;
+}
+
+.modal-btn-row {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 16px;
 }
 
 .modal-btn-row button {

@@ -7,8 +7,8 @@ import {
   Modal,
   EventRef,
   TFile,
+  MarkdownRenderer,
 } from "obsidian";
-import { marked } from "marked";
 import type AIChatPlugin from "../core/main";
 import { AIService } from "../services/aiService";
 import { Storage } from "../services/storage";
@@ -18,11 +18,6 @@ import { ChatMessage, Conversation, ModelConfig } from "../core/types";
 import { i18n, detectLanguage } from "../core/i18n";
 
 export const VIEW_TYPE_AI_CHAT = "vaulttalk-view";
-
-marked.setOptions({
-  breaks: true,
-  gfm: true,
-});
 
 export class AIChatView extends ItemView {
   plugin: AIChatPlugin;
@@ -106,14 +101,11 @@ export class AIChatView extends ItemView {
     // 输入框
     this.inputEl = inputContainer.createEl("textarea");
     this.inputEl.placeholder = i18n("view.input.placeholder");
-    this.inputEl.style.border = "none";
-    this.inputEl.style.outline = "none";
-    this.inputEl.style.boxShadow = "none";
 
     // 自动调整高度
     this.inputEl.addEventListener("input", () => {
-      this.inputEl.style.height = "auto";
-      this.inputEl.style.height = Math.min(this.inputEl.scrollHeight, 120) + "px";
+      this.inputEl.setCssStyles({ height: "auto" });
+      this.inputEl.setCssStyles({ height: Math.min(this.inputEl.scrollHeight, 120) + "px" });
     });
 
     // 按钮容器
@@ -261,10 +253,12 @@ export class AIChatView extends ItemView {
       });
     });
 
-    dropdown.style.position = "fixed";
-    dropdown.style.left = rect.left + "px";
-    dropdown.style.bottom = window.innerHeight - rect.top + 4 + "px";
-    dropdown.style.width = Math.max(rect.width, 160) + "px";
+    dropdown.setCssStyles({
+      position: "fixed",
+      left: rect.left + "px",
+      bottom: window.innerHeight - rect.top + 4 + "px",
+      width: Math.max(rect.width, 160) + "px",
+    });
 
     document.body.appendChild(dropdown);
   }
@@ -328,9 +322,9 @@ export class AIChatView extends ItemView {
 
     // 渲染用户消息
     const userMessage: ChatMessage = { role: "user", content };
-    this.renderMessage(userMessage);
+    await this.renderMessage(userMessage);
     this.inputEl.value = "";
-    this.inputEl.style.height = "36px";
+    this.inputEl.setCssStyles({ height: "36px" });
 
     // 保存用户消息
     await this.storage.addMessage(this.currentConversation.id, userMessage);
@@ -386,7 +380,8 @@ export class AIChatView extends ItemView {
         if (statusEl) {
           statusEl.remove();
         }
-        contentEl.innerHTML = marked.parse(this.processNoteLinks(fullContent)) as string;
+        contentEl.empty();
+        await MarkdownRenderer.render(this.app, fullContent, contentEl, "", this);
         this.addNoteLinkHandlers(contentEl);
         this.messageArea.scrollTop = this.messageArea.scrollHeight;
       }
@@ -480,42 +475,18 @@ When responding:
   // ==================== 笔记链接处理 ====================
 
   /**
-   * 处理 AI 回复中的 Obsidian wiki-link，在 marked 解析前转为 HTML 链接
-   * 支持 [[path/to/note]] 和 [[path/to/note|alias]] 格式
-   */
-  private processNoteLinks(content: string): string {
-    return content.replace(
-      /\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g,
-      (_match, path: string, alias?: string) => {
-        const cleanPath = path.trim().replace(/\.md$/, "");
-        const displayText = (alias || cleanPath.split("/").pop() || cleanPath)
-          .replace(/&/g, "&amp;")
-          .replace(/"/g, "&quot;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;");
-        const safePath = cleanPath
-          .replace(/&/g, "&amp;")
-          .replace(/"/g, "&quot;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;");
-        return `<a href="#" class="note-link" data-note-path="${safePath}">${displayText}</a>`;
-      },
-    );
-  }
-
-  /**
    * 为生成的笔记链接绑定点击事件，使用 Obsidian 的 openLinkText 解析链接
    * 能自动处理最短唯一路径、相对路径等场景
    */
   private addNoteLinkHandlers(containerEl: HTMLElement): void {
-    const links = containerEl.querySelectorAll("a[data-note-path]");
+    const links = containerEl.querySelectorAll("a.internal-link");
     links.forEach((link) => {
       const anchor = link as HTMLAnchorElement;
       anchor.addEventListener("click", (e) => {
         e.preventDefault();
-        const notePath = anchor.getAttribute("data-note-path") || "";
+        const notePath = anchor.getAttribute("data-href") || anchor.textContent || "";
         if (notePath) {
-          this.app.workspace.openLinkText(notePath + ".md", "", false);
+          this.app.workspace.openLinkText(notePath, "", false);
         }
       });
     });
@@ -564,7 +535,7 @@ When responding:
     return wrapper;
   }
 
-  private renderMessage(message: ChatMessage): void {
+  private async renderMessage(message: ChatMessage): Promise<void> {
     // 外层包裹（用户消息右对齐）
     const alignClass = message.role === "user" ? "message-wrapper-right" : "";
     const wrapper = this.messageArea.createDiv(`message-wrapper ${alignClass}`);
@@ -574,7 +545,7 @@ When responding:
     const contentEl = bubble.createDiv("message-content");
 
     if (message.role === "assistant") {
-      contentEl.innerHTML = marked.parse(this.processNoteLinks(message.content)) as string;
+      await MarkdownRenderer.render(this.app, message.content, contentEl, "", this);
       this.addNoteLinkHandlers(contentEl);
     } else {
       contentEl.textContent = message.content;
@@ -639,7 +610,9 @@ When responding:
   private async loadConversation(conversation: Conversation): Promise<void> {
     this.currentConversation = conversation;
     this.messageArea.empty();
-    conversation.messages.forEach((msg) => this.renderMessage(msg));
+    for (const msg of conversation.messages) {
+      await this.renderMessage(msg);
+    }
   }
 
   private async newConversation(): Promise<void> {

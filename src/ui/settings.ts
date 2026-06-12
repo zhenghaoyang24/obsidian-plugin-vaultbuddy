@@ -24,7 +24,7 @@ export class AIChatSettingTab extends PluginSettingTab {
     containerEl.empty();
 
     // ================= 模型配置区域 =================
-    containerEl.createEl("h2", { text: i18n("settings.models") });
+    new Setting(containerEl).setName(i18n("settings.models")).setHeading();
 
     // 顶部添加按钮
     new Setting(containerEl).addButton((btn) =>
@@ -89,7 +89,8 @@ export class AIChatSettingTab extends PluginSettingTab {
       .setName(i18n("settings.maxTokens"))
       .setDesc(i18n("settings.maxTokensDesc"))
       .addText((text) => {
-        text.setValue(String(this.plugin.settings.maxResponseTokens))
+        text
+          .setValue(String(this.plugin.settings.maxResponseTokens))
           .setPlaceholder(i18n("settings.maxTokensPlaceholder"))
           .onChange((value) => {
             const num = parseInt(value);
@@ -105,12 +106,10 @@ export class AIChatSettingTab extends PluginSettingTab {
       .setName(i18n("settings.resumeLast"))
       .setDesc(i18n("settings.resumeLastDesc"))
       .addToggle((toggle) => {
-        toggle
-          .setValue(this.plugin.settings.resumeLastConversation)
-          .onChange((value) => {
-            this.plugin.settings.resumeLastConversation = value;
-            this.plugin.saveSettings();
-          });
+        toggle.setValue(this.plugin.settings.resumeLastConversation).onChange((value) => {
+          this.plugin.settings.resumeLastConversation = value;
+          this.plugin.saveSettings();
+        });
       });
 
     // ================= 自定义规则 =================
@@ -165,9 +164,15 @@ export class AIChatSettingTab extends PluginSettingTab {
     // 输入区域
     const cardBody = card.createDiv("model-card-body");
 
-    this.addCardInput(cardBody, i18n("settings.modelName"), i18n("settings.modelNamePlaceholder"), model.name, (v) => {
-      model.name = v;
-    });
+    this.addCardInput(
+      cardBody,
+      i18n("settings.modelName"),
+      i18n("settings.modelNamePlaceholder"),
+      model.name,
+      (v) => {
+        model.name = v;
+      },
+    );
     this.addCardInput(
       cardBody,
       i18n("settings.baseUrl"),
@@ -181,15 +186,21 @@ export class AIChatSettingTab extends PluginSettingTab {
       cardBody,
       i18n("settings.apiKey"),
       i18n("settings.apiKeyPlaceholder"),
-      model.apiKey || '',
+      model.apiKey || "",
       (v) => {
         model.apiKey = v;
       },
       true,
     );
-    this.addCardInput(cardBody, i18n("settings.modelId"), i18n("settings.modelIdPlaceholder"), model.modelId, (v) => {
-      model.modelId = v;
-    });
+    this.addCardInput(
+      cardBody,
+      i18n("settings.modelId"),
+      i18n("settings.modelIdPlaceholder"),
+      model.modelId,
+      (v) => {
+        model.modelId = v;
+      },
+    );
     this.addCardInput(
       cardBody,
       i18n("settings.contextWindow"),
@@ -250,7 +261,11 @@ export class AIChatSettingTab extends PluginSettingTab {
 
   // ==================== 已保存卡片 ====================
 
-  private async drawModelCard(containerEl: HTMLElement, model: ModelConfig, index: number): Promise<void> {
+  private async drawModelCard(
+    containerEl: HTMLElement,
+    model: ModelConfig,
+    index: number,
+  ): Promise<void> {
     const card = containerEl.createDiv("model-card");
 
     // 从 SecretStorage 加载 apiKey
@@ -262,12 +277,18 @@ export class AIChatSettingTab extends PluginSettingTab {
     headerLeft.createEl("strong", { text: model.name || i18n("settings.unnamed") });
 
     const addedTime = new Date(parseInt(model.id) || Date.now()).toLocaleString("zh-CN");
-    headerLeft.createEl("span", { text: `${i18n("settings.addTime")} ${addedTime}`, cls: "model-card-time" });
+    headerLeft.createEl("span", {
+      text: `${i18n("settings.addTime")} ${addedTime}`,
+      cls: "model-card-time",
+    });
 
     const headerRight = cardHeader.createDiv("model-card-header-right");
 
     // 编辑按钮
-    const editBtn = headerRight.createEl("button", { text: i18n("settings.edit"), cls: "model-card-btn" });
+    const editBtn = headerRight.createEl("button", {
+      text: i18n("settings.edit"),
+      cls: "model-card-btn",
+    });
     editBtn.addEventListener("click", () => this.toggleEditMode(card, model, index));
 
     // 删除按钮
@@ -278,7 +299,10 @@ export class AIChatSettingTab extends PluginSettingTab {
     deleteBtn.addEventListener("click", () => this.confirmDeleteModel(card, model, index));
 
     // 测试按钮
-    const testBtn = headerRight.createEl("button", { text: i18n("settings.test"), cls: "model-card-btn model-card-btn-test" });
+    const testBtn = headerRight.createEl("button", {
+      text: i18n("settings.test"),
+      cls: "model-card-btn model-card-btn-test",
+    });
     testBtn.addEventListener("click", async () => {
       if (!apiKey || !model.baseUrl || !model.modelId) {
         new Notice(i18n("notice.connectionTestNeedsConfig"));
@@ -295,10 +319,16 @@ export class AIChatSettingTab extends PluginSettingTab {
     // 输入
     const cardBody = card.createDiv("model-card-body");
 
-    this.addCardInput(cardBody, i18n("settings.modelName"), i18n("settings.modelNamePlaceholder"), model.name, (v) => {
-      model.name = v;
-      this.plugin.saveSettings();
-    });
+    this.addCardInput(
+      cardBody,
+      i18n("settings.modelName"),
+      i18n("settings.modelNamePlaceholder"),
+      model.name,
+      (v) => {
+        model.name = v;
+        this.plugin.saveSettings();
+      },
+    );
     this.addCardInput(
       cardBody,
       i18n("settings.baseUrl"),
@@ -319,9 +349,15 @@ export class AIChatSettingTab extends PluginSettingTab {
       },
       true,
     );
-    this.addCardInput(cardBody, i18n("settings.modelId"), i18n("settings.modelIdPlaceholder"), model.modelId, (v) => {
-      model.modelId = v;
-    });
+    this.addCardInput(
+      cardBody,
+      i18n("settings.modelId"),
+      i18n("settings.modelIdPlaceholder"),
+      model.modelId,
+      (v) => {
+        model.modelId = v;
+      },
+    );
     this.addCardInput(
       cardBody,
       i18n("settings.contextWindow"),
@@ -404,12 +440,10 @@ export class AIChatSettingTab extends PluginSettingTab {
     content.createEl("p", { text: i18n("settings.irreversible"), cls: "modal-warning" });
 
     const btnRow = content.createDiv("modal-btn-row");
-    btnRow.style.display = "flex";
-    btnRow.style.gap = "8px";
-    btnRow.style.justifyContent = "flex-end";
-    btnRow.style.marginTop = "16px";
 
-    btnRow.createEl("button", { text: i18n("settings.cancel") }).addEventListener("click", () => modal.close());
+    btnRow
+      .createEl("button", { text: i18n("settings.cancel") })
+      .addEventListener("click", () => modal.close());
 
     const confirmBtn = btnRow.createEl("button", {
       text: i18n("settings.confirmDelete"),
@@ -431,16 +465,13 @@ export class AIChatSettingTab extends PluginSettingTab {
     const inputs = card.querySelectorAll(".model-card-input") as NodeListOf<HTMLInputElement>;
     inputs.forEach((inp) => {
       inp.disabled = disabled;
-      inp.style.border = disabled ? "none" : "1px solid var(--background-modifier-border)";
-      inp.style.background = disabled ? "transparent" : "var(--background-primary)";
-      inp.style.opacity = "1";
     });
 
     const toggles = card.querySelectorAll(
       ".model-card-password-toggle",
     ) as NodeListOf<HTMLButtonElement>;
     toggles.forEach((btn) => {
-      btn.style.display = disabled ? "none" : "";
+      btn.toggleClass("model-card-toggle-hidden", disabled);
     });
   }
 }
