@@ -16,7 +16,7 @@ import { Storage } from "../services/storage";
 import { SourceManager } from "../utils/sourceManager";
 import { ContextBuilder } from "../services/contextBuilder";
 import { ChatMessage, Conversation, ModelConfig } from "../core/types";
-import { i18n, detectLanguage } from "../core/i18n";
+import { i18n } from "../core/i18n";
 
 export const VIEW_TYPE_AI_CHAT = "vaultbuddy-view";
 
@@ -134,8 +134,8 @@ export class AIChatView extends ItemView {
     });
 
     // 模型下拉关闭
-    document.addEventListener("click", () => {
-      const existing = document.querySelector(".model-dropdown");
+    activeDocument.addEventListener("click", () => {
+      const existing = activeDocument.querySelector(".model-dropdown");
       if (existing) existing.remove();
     });
 
@@ -226,7 +226,7 @@ export class AIChatView extends ItemView {
   }
 
   private showModelDropdown(): void {
-    const existing = document.querySelector(".model-dropdown");
+    const existing = activeDocument.querySelector(".model-dropdown");
     if (existing) {
       existing.remove();
       return;
@@ -235,7 +235,7 @@ export class AIChatView extends ItemView {
     const rect = this.modelBtn.getBoundingClientRect();
     const models = this.plugin.settings.models;
 
-    const dropdown = document.createElement("div");
+    const dropdown = activeDocument.createElement("div");
     dropdown.addClass("model-dropdown");
 
     models.forEach((model) => {
@@ -245,12 +245,13 @@ export class AIChatView extends ItemView {
       if (model.id === this.plugin.settings.defaultModelId) {
         item.addClass("selected");
       }
-      item.addEventListener("click", async (e) => {
+      item.addEventListener("click", (e) => {
         e.stopPropagation();
         this.plugin.settings.defaultModelId = model.id;
-        await this.plugin.saveSettings();
-        this.updateModelBtn();
-        dropdown.remove();
+        void this.plugin.saveSettings().then(() => {
+          this.updateModelBtn();
+          dropdown.remove();
+        });
       });
     });
 
@@ -261,7 +262,7 @@ export class AIChatView extends ItemView {
       width: Math.max(rect.width, 160) + "px",
     });
 
-    document.body.appendChild(dropdown);
+    activeDocument.body.appendChild(dropdown);
   }
 
   // ==================== 生成状态控制 ====================
@@ -363,7 +364,7 @@ export class AIChatView extends ItemView {
       if (needsBuilding) {
         const elapsed = Date.now() - buildStartTime;
         if (elapsed < 1000) {
-          await new Promise((resolve) => setTimeout(resolve, 1000 - elapsed));
+          await new Promise((resolve) => window.setTimeout(resolve, 1000 - elapsed));
         }
       }
 
@@ -389,15 +390,16 @@ export class AIChatView extends ItemView {
       }
 
       messageEl.removeClass("thinking");
-    } catch (error: any) {
-      if (error.name === "AbortError") {
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === "AbortError") {
         // 用户主动终止：移除思考动画，添加终止提示
         messageEl.removeClass("thinking");
         const dots = contentEl.querySelector(".thinking-dots");
         if (dots) dots.remove();
       } else {
         console.error("AI 调用失败:", error);
-        contentEl.textContent = `⚠️ ${error.message}`;
+        const msg = error instanceof Error ? error.message : String(error);
+        contentEl.textContent = `⚠️ ${msg}`;
         messageEl.addClass("error");
         messageEl.removeClass("thinking");
       }
@@ -511,7 +513,7 @@ Detect the language of the user's most recent message and respond EXCLUSIVELY in
 
       const resolved = this.app.metadataCache.getFirstLinkpathDest(href, "");
       if (resolved instanceof TFolder) {
-        const span = document.createElement("span");
+        const span = activeDocument.createElement("span");
         span.textContent = anchor.textContent || href;
         span.className = "vaultbuddy-folder-link";
         anchor.replaceWith(span);
@@ -603,16 +605,17 @@ Detect the language of the user's most recent message and respond EXCLUSIVELY in
   ): void {
     const btn = container.createDiv("msg-action-btn");
     btn.textContent = label;
-    btn.addEventListener("click", async () => {
+    btn.addEventListener("click", () => {
       if (fillInput) {
         this.inputEl.value = content;
         this.inputEl.focus();
       } else {
-        await navigator.clipboard.writeText(content);
-        btn.textContent = i18n("view.copied");
-        setTimeout(() => {
-          btn.textContent = i18n("view.copy");
-        }, 1500);
+        void navigator.clipboard.writeText(content).then(() => {
+          btn.textContent = i18n("view.copied");
+          window.setTimeout(() => {
+            btn.textContent = i18n("view.copy");
+          }, 1500);
+        });
       }
     });
   }
@@ -633,8 +636,8 @@ Detect the language of the user's most recent message and respond EXCLUSIVELY in
       this.storage,
       conversations,
       this.currentConversation?.id,
-      async (conv) => {
-        await this.loadConversation(conv);
+      (conv) => {
+        void this.loadConversation(conv);
       },
     );
     modal.open();
@@ -706,11 +709,12 @@ class HistoryModal extends Modal {
 
       const deleteBtn = convEl.createDiv("history-delete");
       deleteBtn.createSpan({ text: "×" });
-      deleteBtn.addEventListener("click", async (e) => {
+      deleteBtn.addEventListener("click", (e) => {
         e.stopPropagation();
-        await this.storage.deleteConversation(conv.id);
-        convEl.remove();
-        new Notice(i18n("view.deleted"));
+        void this.storage.deleteConversation(conv.id).then(() => {
+          convEl.remove();
+          new Notice(i18n("view.deleted"));
+        });
       });
 
       convEl.addEventListener("click", () => {

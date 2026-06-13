@@ -1,4 +1,4 @@
-import { App, Notice, Platform, Plugin, WorkspaceLeaf } from "obsidian";
+import { App, Platform, Plugin, WorkspaceLeaf } from "obsidian";
 import { AIChatSettingTab } from "../ui/settings";
 import { AIChatView, VIEW_TYPE_AI_CHAT } from "../ui/view";
 import { AIChatSettings, ModelConfig, DEFAULT_SETTINGS } from "./types";

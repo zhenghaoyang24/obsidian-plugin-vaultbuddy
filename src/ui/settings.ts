@@ -267,7 +267,7 @@ export class AIChatSettingTab extends PluginSettingTab {
     const validEl = card.createDiv("model-card-valid-indicator invalid");
     validEl.textContent = i18n("settings.incomplete");
 
-    const inputs = card.querySelectorAll(".model-card-input") as NodeListOf<HTMLInputElement>;
+    const inputs = card.querySelectorAll<HTMLInputElement>(".model-card-input");
     const checkValid = () => {
       const allFilled = Array.from(inputs).every((inp) => inp.value.trim() !== "");
       if (allFilled) {
@@ -344,17 +344,18 @@ export class AIChatSettingTab extends PluginSettingTab {
       text: i18n("settings.test"),
       cls: "model-card-btn model-card-btn-test",
     });
-    testBtn.addEventListener("click", async () => {
+    testBtn.addEventListener("click", () => {
       if (!apiKey || !model.baseUrl || !model.modelId) {
         new Notice(i18n("notice.connectionTestNeedsConfig"));
         return;
       }
       testBtn.textContent = i18n("settings.testing");
       testBtn.disabled = true;
-      const ok = await AIService.testConnection({ ...model, apiKey });
-      testBtn.disabled = false;
-      testBtn.textContent = i18n("settings.test");
-      new Notice(ok ? i18n("settings.testSuccess") : i18n("settings.testFail"));
+      void AIService.testConnection({ ...model, apiKey }).then((ok) => {
+        testBtn.disabled = false;
+        testBtn.textContent = i18n("settings.test");
+        new Notice(ok ? i18n("settings.testSuccess") : i18n("settings.testFail"));
+      });
     });
 
     const cardBody = card.createDiv("model-card-body");
@@ -508,12 +509,13 @@ export class AIChatSettingTab extends PluginSettingTab {
       text: i18n("settings.confirmDelete"),
       cls: "model-card-btn-danger",
     });
-    confirmBtn.addEventListener("click", async () => {
-      await this.plugin.deleteApiKey(model.id);
-      this.plugin.settings.models.splice(index, 1);
-      this.plugin.saveSettings();
-      modal.close();
-      this.display();
+    confirmBtn.addEventListener("click", () => {
+      void this.plugin.deleteApiKey(model.id).then(() => {
+        this.plugin.settings.models.splice(index, 1);
+        this.plugin.saveSettings();
+        modal.close();
+        this.display();
+      });
     });
 
     modal.open();

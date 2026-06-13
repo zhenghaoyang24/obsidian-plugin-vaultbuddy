@@ -4,6 +4,12 @@
 
 export type Lang = "zh" | "en";
 
+declare global {
+  interface Window {
+    moment?: { locale?: () => string };
+  }
+}
+
 const strings: Record<Lang, Record<string, string>> = {
   zh: {
     // View
@@ -189,7 +195,7 @@ export function getLanguage(): Lang {
 export function detectLanguage(): Lang {
   try {
     // Obsidian stores language in localStorage or we can detect from moment
-    const locale = (window as any).moment?.locale?.() || navigator.language || "zh";
+    const locale = window.moment?.locale?.() || navigator.language || "zh";
     if (locale.startsWith("zh")) return "zh";
     return "en";
   } catch {
