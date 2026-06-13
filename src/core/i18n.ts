@@ -1,5 +1,5 @@
 /**
- * Simple i18n module for VaultTalk
+ * Simple i18n module for VaultBuddy
  */
 
 export type Lang = "zh" | "en";
@@ -7,7 +7,7 @@ export type Lang = "zh" | "en";
 const strings: Record<Lang, Record<string, string>> = {
   zh: {
     // View
-    "view.title": "VaultTalk",
+    "view.title": "VaultBuddy",
     "view.input.placeholder": "输入消息...",
     "view.send": "发送",
     "view.stop": "终止",
@@ -28,6 +28,12 @@ const strings: Record<Lang, Record<string, string>> = {
     "view.deleted": "已删除对话",
 
     // Settings
+    "settings.tabGeneral": "通用设置",
+    "settings.tabModels": "模型配置",
+    "settings.temperature": "回复温度 (Temperature)",
+    "settings.temperatureDesc":
+      "控制 AI 回复的创造性和随机性。较低的值（0.1-0.3）更精确，较高的值（0.7-1.0）更有创意。默认 0.7。",
+    "settings.general": "通用设置",
     "settings.models": "模型配置",
     "settings.addModel": "+ 添加模型",
     "settings.defaultModel": "默认模型",
@@ -66,11 +72,11 @@ const strings: Record<Lang, Record<string, string>> = {
     "settings.modelAdded": "✅ 模型已添加",
     "settings.unnamed": "未命名模型",
     "settings.addTime": "添加于",
-    "settings.modelNamePlaceholder": "DeepSeek V4 Pro",
-    "settings.baseUrlPlaceholder": "https://api.deepseek.com/chat/completions",
+    "settings.modelNamePlaceholder": "ChatGPT",
+    "settings.baseUrlPlaceholder": "https://api.openai.com/v1/chat/completions",
     "settings.apiKeyPlaceholder": "sk-...",
-    "settings.modelIdPlaceholder": "deepseek-chat",
-    "settings.contextWindowPlaceholder": "默认 131072（推荐 65536-131072）",
+    "settings.modelIdPlaceholder": "gpt-4o",
+    "settings.contextWindowPlaceholder": "默认 128000（推荐 65536-128000）",
     "settings.maxTokensPlaceholder": "4096",
 
     // Notices
@@ -82,7 +88,7 @@ const strings: Record<Lang, Record<string, string>> = {
 
   en: {
     // View
-    "view.title": "VaultTalk",
+    "view.title": "VaultBuddy",
     "view.input.placeholder": "Type a message...",
     "view.send": "Send",
     "view.stop": "Stop",
@@ -103,6 +109,12 @@ const strings: Record<Lang, Record<string, string>> = {
     "view.deleted": "Conversation deleted",
 
     // Settings
+    "settings.tabGeneral": "General",
+    "settings.tabModels": "Models",
+    "settings.temperature": "Temperature",
+    "settings.temperatureDesc":
+      "Controls AI response creativity and randomness. Lower values (0.1-0.3) are more precise, higher values (0.7-1.0) are more creative. Default 0.7.",
+    "settings.general": "General",
     "settings.models": "Model Configuration",
     "settings.addModel": "+ Add Model",
     "settings.defaultModel": "Default Model",
@@ -142,11 +154,11 @@ const strings: Record<Lang, Record<string, string>> = {
     "settings.modelAdded": "✅ Model added",
     "settings.unnamed": "Unnamed Model",
     "settings.addTime": "Added on",
-    "settings.modelNamePlaceholder": "DeepSeek V4 Pro",
-    "settings.baseUrlPlaceholder": "https://api.deepseek.com/chat/completions",
+    "settings.modelNamePlaceholder": "ChatGPT",
+    "settings.baseUrlPlaceholder": "https://api.openai.com/v1/chat/completions",
     "settings.apiKeyPlaceholder": "sk-...",
-    "settings.modelIdPlaceholder": "deepseek-chat",
-    "settings.contextWindowPlaceholder": "Default 131072 (recommended 65536-131072)",
+    "settings.modelIdPlaceholder": "gpt-4o",
+    "settings.contextWindowPlaceholder": "Default 128000 (recommended 65536-128000)",
     "settings.maxTokensPlaceholder": "4096",
 
     // Notices

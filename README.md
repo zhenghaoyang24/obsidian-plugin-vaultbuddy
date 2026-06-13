@@ -1,10 +1,10 @@
 <div align="right">
 
-[**中文**](README.zh.md) | [**English**](README.md)
+[**中文**](README.zh.md) | English
 
 </div>
 
-# VaultTalk
+# VaultBuddy
 
 > AI-powered chat assistant for Obsidian. Chat with your entire vault as context.
 
@@ -14,7 +14,7 @@
 
 ## Features
 
-**VaultTalk** turns your Obsidian vault into an intelligent Q&A system. Simply ask a question, and the AI automatically retrieves the most relevant passages from your notes as context to provide grounded answers. It helps you locate scattered information, connect ideas across different notes, or generate summaries and suggestions—with automatic source citations. Compatible with any API endpoint that supports curl calls, you can configure multiple models and switch between them on the fly. API keys are stored locally with encryption, and all conversations are automatically saved.
+**VaultBuddy** turns your Obsidian vault into an intelligent Q&A system. Simply ask a question, and the AI automatically retrieves the most relevant passages from your notes as context to provide grounded answers. It helps you locate scattered information, connect ideas across different notes, or generate summaries and suggestions—with automatic source citations. Compatible with any API endpoint that supports curl calls, you can configure multiple models and switch between them on the fly. API keys are stored locally with encryption, and all conversations are automatically saved.
 
 ---
 
@@ -23,16 +23,16 @@
 ### From Obsidian Community Store (once published)
 
 1. Open Obsidian → Settings → Community Plugins → Browse
-2. Search for **VaultTalk**
+2. Search for **VaultBuddy**
 3. Click Install → Enable
 
 ### Manual Installation
 
-1. Go to [GitHub Releases](https://github.com/zhenghaoyang24/obsidian-plugin-vaulttalk/releases) and download these 3 files:
+1. Go to [GitHub Releases](https://github.com/zhenghaoyang24/obsidian-plugin-vaultbuddy/releases) and download these 3 files:
    - `main.js`
    - `manifest.json`
    - `styles.css`
-2. Create a folder `.obsidian/plugins/vaulttalk/` inside your vault
+2. Create a folder `.obsidian/plugins/vaultbuddy/` inside your vault
 3. Put the 3 files into that folder
 4. Enable the plugin in Settings → Community Plugins
 
@@ -42,7 +42,7 @@
 
 ### Add a Model
 
-Open **Settings → VaultTalk** and click **+ Add Model**. Fill in:
+Open **Settings → VaultBuddy** and click **+ Add Model**. Fill in:
 
 | Field          | Example                                     |
 | -------------- | ------------------------------------------- |
@@ -89,7 +89,7 @@ tsc --noEmit
 ### Project Structure
 
 ```
-vaulttalk/
+vaultbuddy/
 ├── manifest.json
 ├── package.json
 ├── styles.css

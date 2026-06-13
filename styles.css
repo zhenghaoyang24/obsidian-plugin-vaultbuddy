@@ -1,4 +1,57 @@
-/* VaultTalk 插件样式 */
+/* VaultBuddy 插件样式 */
+
+/* ==================== Settings Tabs ==================== */
+
+.vaultbuddy-settings-tabs {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.vaultbuddy-tab-segment {
+  display: flex;
+  gap: 0;
+  background-color: #1e1e1e;
+  border-radius: 8px;
+  padding: 3px;
+  border: 1px solid #333;
+}
+
+.vaultbuddy-tab-btn {
+  padding: 7px 24px;
+  border: none;
+  background: transparent;
+  color: #888;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 6px;
+  transition:
+    color 0.2s,
+    background-color 0.2s,
+    box-shadow 0.2s;
+}
+
+.vaultbuddy-tab-btn:hover {
+  color: #ccc;
+}
+
+.vaultbuddy-tab-btn.active {
+  color: var(--text-on-accent);
+  background-color: var(--interactive-accent);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  font-weight: 600;
+}
+
+.vaultbuddy-model-top-row .setting-item {
+  background: transparent;
+  border: none;
+  padding: 4px 0;
+}
+
+.vaultbuddy-tab-content {
+  min-height: 200px;
+}
 
 /* 主视图容器 */
 .ai-chat-view {
@@ -8,7 +61,7 @@
 }
 
 /* 头部工具栏 */
-.vaulttalk-header {
+.vaultbuddy-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -199,7 +252,7 @@
   text-decoration: underline;
 }
 
-.vaulttalk-folder-link {
+.vaultbuddy-folder-link {
   color: var(--text-muted);
   cursor: default;
 }

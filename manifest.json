@@ -1,7 +1,7 @@
 {
-  "id": "vaulttalk",
-  "name": "VaultTalk",
-  "version": "1.0.1",
+  "id": "vaultbuddy",
+  "name": "VaultBuddy",
+  "version": "1.0.2",
   "minAppVersion": "1.8.7",
   "description": "AI-powered chat assistant that stays in the sidebar. Supports streaming responses, chats with your entire vault as context, and provides answers grounded in your notes. Compatible with OpenAI-style APIs (DeepSeek, OpenAI, etc.).",
   "author": "zhenghaoyang24",

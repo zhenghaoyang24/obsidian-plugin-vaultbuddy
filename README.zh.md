@@ -1,10 +1,10 @@
 <div align="right">
 
-[**English**](README.md) | [**中文**](README.zh.md)
+[**English**](README.md) | 中文
 
 </div>
 
-# VaultTalk
+# VaultBuddy
 
 > Obsidian AI 对话助手，基于本地笔记智能回答问题。
 
@@ -14,7 +14,7 @@
 
 ## 功能特性
 
-**VaultTalk** 可将 Obsidian 知识库转变为智能问答系统。你只需提问，AI 便会从笔记中自动检索最相关的段落作为上下文，给出有据可循的答案。它支持定位分散信息、串联不同笔记中的想法、生成总结或建议，并自动标注引用来源。兼容任意支持 curl 调用的 API 端点，可配置多个模型并随时切换。API 密钥本地加密存储，所有对话自动保存。
+**VaultBuddy** 可将 Obsidian 知识库转变为智能问答系统。你只需提问，AI 便会从笔记中自动检索最相关的段落作为上下文，给出有据可循的答案。它支持定位分散信息、串联不同笔记中的想法、生成总结或建议，并自动标注引用来源。兼容任意支持 curl 调用的 API 端点，可配置多个模型并随时切换。API 密钥本地加密存储，所有对话自动保存。
 
 ---
 
@@ -23,18 +23,18 @@
 ### 从社区商店安装（上架后）
 
 1. 打开 Obsidian → 设置 → 第三方插件 → 浏览
-2. 搜索 **VaultTalk**
+2. 搜索 **VaultBuddy**
 3. 点击安装 → 启用
 
 ### 手动安装
 
-1. 前往 [GitHub Releases](https://github.com/zhenghaoyang24/obsidian-plugin-vaulttalk/releases) 下载以下 3 个文件：
+1. 前往 [GitHub Releases](https://github.com/zhenghaoyang24/obsidian-plugin-vaultbuddy/releases) 下载以下 3 个文件：
    - `main.js`
    - `manifest.json`
    - `styles.css`
-2. 在你的仓库中创建文件夹 `.obsidian/plugins/vaulttalk/`
+2. 在你的仓库中创建文件夹 `.obsidian/plugins/vaultbuddy/`
 3. 将这 3 个文件放入该文件夹
-4. 打开设置 → 第三方插件 → 启用 VaultTalk
+4. 打开设置 → 第三方插件 → 启用 VaultBuddy
 
 ---
 
@@ -42,7 +42,7 @@
 
 ### 添加模型
 
-打开 **设置 → VaultTalk**，点击 **+ 添加模型**。填写以下信息：
+打开 **设置 → VaultBuddy**，点击 **+ 添加模型**。填写以下信息：
 
 | 字段       | 示例值                                      |
 | ---------- | ------------------------------------------- |
@@ -89,7 +89,7 @@ tsc --noEmit
 ### 项目结构
 
 ```
-vaulttalk/
+vaultbuddy/
 ├── manifest.json          # 插件元数据
 ├── package.json           # 依赖配置
 ├── styles.css             # 样式文件

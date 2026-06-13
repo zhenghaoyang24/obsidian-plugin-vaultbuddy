@@ -9,8 +9,8 @@ import { setLanguage, detectLanguage, i18n } from "./i18n";
  * 使用 Web Crypto API 对 API Key 进行加密，防止明文存储在 data.json 中
  */
 class ApiKeyStorage {
-  private static readonly SALT_KEY = "vaulttalk-encryption-salt";
-  private static readonly IV_KEY = "vaulttalk-encryption-iv";
+  private static readonly SALT_KEY = "vaultbuddy-encryption-salt";
+  private static readonly IV_KEY = "vaultbuddy-encryption-iv";
 
   /**
    * 获取或生成设备特定的加密密钥
@@ -125,11 +125,11 @@ export default class AIChatPlugin extends Plugin {
     // 注册设置页
     this.addSettingTab(new AIChatSettingTab(this.app, this));
 
-    console.log("VaultTalk loaded");
+    console.log("VaultBuddy loaded");
   }
 
   onunload() {
-    console.log("VaultTalk unloaded");
+    console.log("VaultBuddy unloaded");
   }
 
   async loadSettings() {

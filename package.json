@@ -1,6 +1,6 @@
 {
-  "name": "vaulttalk",
-  "version": "1.0.1",
+  "name": "vaultbuddy",
+  "version": "1.0.2",
   "description": "AI-powered chat assistant that stays in the sidebar. Supports streaming responses, chats with your entire vault as context, and provides answers grounded in your notes. Compatible with OpenAI-style APIs (DeepSeek, OpenAI, etc.).",
   "main": "main.js",
   "scripts": {
@@ -14,17 +14,17 @@
     "ai",
     "chat",
     "knowledge-base",
-    "vaulttalk"
+    "vaultbuddy"
   ],
   "author": "zhenghaoyang24",
   "authorUrl": "https://github.com/zhenghaoyang24/",
   "repository": {
     "type": "git",
-    "url": "https://github.com/zhenghaoyang24/obsidian-plugin-vaulttalk"
+    "url": "https://github.com/zhenghaoyang24/obsidian-plugin-vaultbuddy"
   },
-  "homepage": "https://github.com/zhenghaoyang24/obsidian-plugin-vaulttalk",
+  "homepage": "https://github.com/zhenghaoyang24/obsidian-plugin-vaultbuddy",
   "bugs": {
-    "url": "https://github.com/zhenghaoyang24/obsidian-plugin-vaulttalk/issues"
+    "url": "https://github.com/zhenghaoyang24/obsidian-plugin-vaultbuddy/issues"
   },
   "license": "MIT",
   "devDependencies": {

@@ -56,13 +56,14 @@ export class AIService {
         model: ModelConfig,
         messages: ChatMessage[],
         maxTokens: number,
-        signal?: AbortSignal
+        signal?: AbortSignal,
+        temperature: number = 0.7
     ): AsyncGenerator<string> {
         const requestBody = {
             model: model.modelId,
             messages: messages,
             max_tokens: maxTokens,
-            temperature: 0.7,
+            temperature: temperature,
             stream: true
         };
 

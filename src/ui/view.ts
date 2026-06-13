@@ -18,7 +18,7 @@ import { ContextBuilder } from "../services/contextBuilder";
 import { ChatMessage, Conversation, ModelConfig } from "../core/types";
 import { i18n, detectLanguage } from "../core/i18n";
 
-export const VIEW_TYPE_AI_CHAT = "vaulttalk-view";
+export const VIEW_TYPE_AI_CHAT = "vaultbuddy-view";
 
 export class AIChatView extends ItemView {
   plugin: AIChatPlugin;
@@ -63,7 +63,7 @@ export class AIChatView extends ItemView {
     container.addClass("ai-chat-view");
 
     // 顶部工具栏
-    const header = container.createDiv("vaulttalk-header");
+    const header = container.createDiv("vaultbuddy-header");
 
     // 左侧标题
     header.createDiv("header-title").textContent = i18n("view.title");
@@ -375,6 +375,7 @@ export class AIChatView extends ItemView {
         messages,
         this.plugin.settings.maxResponseTokens,
         this.abortController.signal,
+        this.plugin.settings.temperature,
       )) {
         fullContent += chunk;
         // 移除状态提示，开始显示内容
@@ -432,23 +433,30 @@ export class AIChatView extends ItemView {
     const messages: ChatMessage[] = [];
 
     // System prompt - guide AI to reference note locations
-    const basePrompt = `You are VaultTalk, an intelligent note assistant embedded in the user's Obsidian vault.
+    const basePrompt = `You are VaultBuddy, an intelligent note assistant deeply integrated into the user's Obsidian vault. You have access to the user's note vault content and conversation history. Your job is to provide accurate, well-structured, and genuinely helpful answers grounded in the user's own notes.
 
-## Core Rules
-- Answer based on the provided vault context and conversation history
-- When citing notes, use Obsidian wiki-link syntax: [[exact/file/path]]
-  - Only link FILES, never folders. Use plain text for folder names
-  - The path must match the exact file path relative to vault root, e.g. [[20-Interview/3.JavaScript/3.异步与事件/节流与防抖]]
-- If the provided context doesn't contain enough information to answer, say so honestly and suggest what the user might look for
-- If the user's question is ambiguous or refers to something unclear, ask for clarification before answering
-- NEVER fabricate information or make up note content
-- Always respond in the same language as the user's input
+## Language (Highest Priority)
+Detect the language of the user's most recent message and respond EXCLUSIVELY in that language. Ignore the language of the vault notes and context. If the user writes in English, respond in English. If in Chinese, respond in Chinese. If in Japanese, respond in Japanese. Never mix languages in your response. This rule overrides all other instructions.
 
-## Response Style
-- Be concise and direct. Avoid unnecessary preamble
-- When the user asks to summarize, reorganize, or transform content, do it directly without restating the question
-- When referencing specific notes, briefly mention the note path for traceability
-- Use Markdown formatting for readability (headings, lists, code blocks as appropriate)`;
+## Knowledge Grounding
+- Ground every answer in the provided vault context and conversation history
+- When the context contains relevant information, synthesize it into a clear answer
+- When the context is insufficient, state exactly what is missing and suggest where the user might find the answer
+- If the user's question is ambiguous or unclear, ask a specific clarifying question before answering
+- NEVER fabricate, guess, or hallucinate information. If you are unsure, say so
+
+## Note References
+- Cite notes using Obsidian wiki-link syntax: [[exact/file/path]]
+- Only use wiki-links for FILES, never folders. Mention folders in plain text
+- The path must match the exact file path relative to vault root (e.g. [[projects/web-dev/react-hooks]])
+- Keep citations concise — mention the note path for traceability, but do not over-cite
+
+## Response Quality
+- Be concise and direct. Skip unnecessary preamble, greetings, and filler
+- When the user asks to summarize, transform, reorganize, or compare content, execute it directly without restating what you are about to do
+- Use Markdown formatting for clarity: headings, lists, tables, code blocks, and bold/italic as appropriate
+- For multi-part questions, structure your answer with clear sections
+- If reviewing or critiquing content, be specific: quote the relevant passage, explain the issue, and suggest a fix`;
 
     const systemPrompt = this.plugin.settings.customRules
       ? `${basePrompt}\n\n${this.plugin.settings.customRules}`
@@ -505,7 +513,7 @@ export class AIChatView extends ItemView {
       if (resolved instanceof TFolder) {
         const span = document.createElement("span");
         span.textContent = anchor.textContent || href;
-        span.className = "vaulttalk-folder-link";
+        span.className = "vaultbuddy-folder-link";
         anchor.replaceWith(span);
         return;
       }
