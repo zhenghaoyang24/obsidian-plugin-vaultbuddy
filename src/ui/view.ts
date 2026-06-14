@@ -10,10 +10,10 @@ import {
   TFolder,
   MarkdownRenderer,
 } from "obsidian";
-import type AIChatPlugin from "../core/main";
+import type AIChatPlugin from "../main";
 import { AIService } from "../services/aiService";
 import { Storage } from "../services/storage";
-import { SourceManager } from "../utils/sourceManager";
+import { SourceManager } from "../services/sourceManager";
 import { ContextBuilder } from "../services/contextBuilder";
 import { ChatMessage, Conversation, ModelConfig } from "../core/types";
 import { i18n } from "../core/i18n";

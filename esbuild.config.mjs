@@ -15,7 +15,7 @@ const context = await esbuild.context({
   banner: {
     js: banner,
   },
-  entryPoints: ["src/core/main.ts"],
+  entryPoints: ["src/main.ts"],
   bundle: true,
   external: [
     "obsidian",
@@ -47,7 +47,7 @@ if (prod) {
   // 复制必需文件到 build 目录
   mkdirSync("build", { recursive: true });
   cpSync("manifest.json", "build/manifest.json");
-  cpSync("styles.css", "build/styles.css");
+  cpSync("src/styles.css", "build/styles.css");
 
   console.log("✅ Build completed, output to build/ directory.");
   process.exit(0);

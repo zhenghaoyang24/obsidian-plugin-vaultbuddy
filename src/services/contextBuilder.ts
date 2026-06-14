@@ -1,6 +1,6 @@
 import { App, TFile, EventRef } from "obsidian";
 import { encode } from "gpt-tokenizer";
-import { SourceManager } from "../utils/sourceManager";
+import { SourceManager } from "./sourceManager";
 import { ModelConfig, ContextChunk } from "../core/types";
 
 // 预留系统提示词的 token 数

@@ -1,5 +1,5 @@
 import { App, PluginSettingTab, Setting, TextAreaComponent, Modal, Notice } from "obsidian";
-import type AIChatPlugin from "../core/main";
+import type AIChatPlugin from "../main";
 import { ModelConfig } from "../core/types";
 import { AIService } from "../services/aiService";
 import { i18n } from "../core/i18n";
