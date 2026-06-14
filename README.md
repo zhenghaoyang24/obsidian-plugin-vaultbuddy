@@ -122,7 +122,3 @@ Please follow the existing code style and include tests when applicable.
 ## License
 
 [MIT](LICENSE)
-
-## Author
-
-**zhenghaoyang24** — [GitHub](https://github.com/zhenghaoyang24/)
