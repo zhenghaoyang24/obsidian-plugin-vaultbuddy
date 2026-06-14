@@ -1,6 +1,6 @@
 <div align="right">
 
-[English](https://github.com/zhenghaoyang24/obsidian-plugin-vaultbuddy/blob/master/README.md) | 中文
+中文 | [English](https://github.com/zhenghaoyang24/obsidian-plugin-vaultbuddy/blob/master/README.md)
 
 </div>
 
