@@ -10,8 +10,16 @@ AI-powered chat assistant for Obsidian. Chat with your entire vault as context.
 
 [![Obsidian Plugin](https://img.shields.io/badge/Obsidian-Plugin-7C3AED?logo=obsidian)](https://obsidian.md/plugins)
 
-<img width="1194" height="929" alt="20260614015448_35_10" src="https://github.com/user-attachments/assets/388f05cb-7f90-4eb9-9235-ea51bd54f18c" />
-<img width="1055" height="858" alt="20260614015503_36_10" src="https://github.com/user-attachments/assets/f9eac27b-703c-40fa-944c-50320372d7fd" />
+<img 
+  alt="20260614015448_35_10" 
+  src="https://github.com/user-attachments/assets/388f05cb-7f90-4eb9-9235-ea51bd54f18c" 
+  style="width: 100%; height: auto; display: block;" 
+/>
+<img 
+  alt="20260614015503_36_10" 
+  src="https://github.com/user-attachments/assets/f9eac27b-703c-40fa-944c-50320372d7fd" 
+  style="width: 100%; height: auto; display: block;" 
+/>
 
 ## Features
 

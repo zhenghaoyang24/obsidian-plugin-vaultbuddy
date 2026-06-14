@@ -10,8 +10,16 @@ Obsidian AI 对话助手，基于本地笔记智能回答问题。
 
 [![Obsidian Plugin](https://img.shields.io/badge/Obsidian-插件-7C3AED?logo=obsidian)](https://obsidian.md/plugins)
 
-<img width="1194" height="929" alt="20260614015448_35_10" src="https://github.com/user-attachments/assets/bbf97004-fa51-4382-984f-108d05eee7b6" />
-<img width="1055" height="858" alt="20260614015503_36_10" src="https://github.com/user-attachments/assets/cd655ad2-e446-4330-b51e-7ef98603fff7" />
+<img 
+  alt="20260614015448_35_10" 
+  src="https://github.com/user-attachments/assets/388f05cb-7f90-4eb9-9235-ea51bd54f18c" 
+  style="width: 100%; height: auto; display: block;" 
+/>
+<img 
+  alt="20260614015503_36_10" 
+  src="https://github.com/user-attachments/assets/f9eac27b-703c-40fa-944c-50320372d7fd" 
+  style="width: 100%; height: auto; display: block;" 
+/>
 
 ## 功能特性
 
