@@ -86,6 +86,7 @@ export class AIChatSettingTab extends PluginSettingTab {
         slider
           .setLimits(0, 2, 0.1)
           .setValue(this.plugin.settings.temperature)
+          .setDynamicTooltip()
           .onChange((value) => {
             this.plugin.settings.temperature = value;
             this.plugin.saveSettings();

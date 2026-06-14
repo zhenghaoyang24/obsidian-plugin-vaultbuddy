@@ -5,7 +5,6 @@ import {
   Notice,
   ButtonComponent,
   Modal,
-  EventRef,
   TFile,
   TFolder,
   MarkdownRenderer,
@@ -14,7 +13,7 @@ import type AIChatPlugin from "../main";
 import { AIService } from "../services/aiService";
 import { Storage } from "../services/storage";
 import { SourceManager } from "../services/sourceManager";
-import { ContextBuilder } from "../services/contextBuilder";
+import { ContextBuilder, KnowledgeContextResult } from "../services/contextBuilder";
 import { ChatMessage, Conversation, ModelConfig } from "../core/types";
 import { i18n } from "../core/i18n";
 
@@ -25,7 +24,6 @@ export class AIChatView extends ItemView {
   storage: Storage;
   sourceManager: SourceManager;
   private contextBuilder: ContextBuilder;
-  private vaultEventRefs: EventRef[] = [];
 
   private messageArea: HTMLElement;
   private inputEl: HTMLTextAreaElement;
@@ -38,6 +36,12 @@ export class AIChatView extends ItemView {
   private isGenerating: boolean = false;
   private abortController: AbortController | null = null;
   private wasAborted: boolean = false;
+
+  // 源笔记显示相关
+  private sourcesBarEl: HTMLElement;
+  private sourcesPanelEl: HTMLElement;
+  private currentSourcePaths: string[] = [];
+  private isSourcesPanelOpen: boolean = false;
 
   constructor(leaf: WorkspaceLeaf, plugin: AIChatPlugin) {
     super(leaf);
@@ -94,6 +98,26 @@ export class AIChatView extends ItemView {
 
     // 消息区域
     this.messageArea = container.createDiv("message-area");
+
+    // 源笔记展开面板（默认隐藏，位于 bar 上方实现向上展开）
+    this.sourcesPanelEl = container.createDiv("vaultbuddy-sources-panel");
+    this.sourcesPanelEl.addClass("collapsed");
+
+    // 源笔记栏（点击切换面板展开/收起）
+    this.sourcesBarEl = container.createDiv("vaultbuddy-sources-bar");
+    this.sourcesBarEl.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.toggleSourcesPanel();
+    });
+
+    // 点击页面其他区域时收起展开面板
+    activeDocument.addEventListener("click", (e) => {
+      if (!this.isSourcesPanelOpen) return;
+      const target = e.target as Node;
+      if (!target) return;
+      if (this.sourcesBarEl.contains(target) || this.sourcesPanelEl.contains(target)) return;
+      this.collapseSourcesPanel();
+    });
 
     // 输入区域
     const inputArea = container.createDiv("input-area");
@@ -155,38 +179,6 @@ export class AIChatView extends ItemView {
     if (this.plugin.settings.resumeLastConversation) {
       await this.loadLastConversation();
     }
-
-    // 监听 vault 文件变化，清除 sourceManager 缓存
-    this.setupVaultEventListeners();
-  }
-
-  /**
-   * 设置 vault 文件变化监听
-   */
-  private setupVaultEventListeners(): void {
-    // 文件创建时清除 sourceManager 缓存
-    const createRef = this.app.vault.on("create", (file) => {
-      if (file instanceof TFile && file.extension === "md") {
-        this.sourceManager.clearSources();
-      }
-    });
-    this.vaultEventRefs.push(createRef);
-
-    // 文件删除时清除 sourceManager 缓存
-    const deleteRef = this.app.vault.on("delete", (file) => {
-      if (file instanceof TFile && file.extension === "md") {
-        this.sourceManager.clearSources();
-      }
-    });
-    this.vaultEventRefs.push(deleteRef);
-
-    // 文件重命名时清除 sourceManager 缓存
-    const renameRef = this.app.vault.on("rename", (file) => {
-      if (file instanceof TFile && file.extension === "md") {
-        this.sourceManager.clearSources();
-      }
-    });
-    this.vaultEventRefs.push(renameRef);
   }
 
   async onClose(): Promise<void> {
@@ -194,11 +186,6 @@ export class AIChatView extends ItemView {
     this.contextBuilder.clearCache();
     // 清理 contextBuilder 的事件监听和缓存
     this.contextBuilder.destroy();
-    // 清理 vault 事件监听
-    for (const ref of this.vaultEventRefs) {
-      this.app.vault.offref(ref);
-    }
-    this.vaultEventRefs = [];
   }
 
   // ==================== 模型选择 ====================
@@ -318,6 +305,9 @@ export class AIChatView extends ItemView {
     }
     const fullModel: ModelConfig = { ...model, apiKey };
 
+    // 开始生成前隐藏源笔记条
+    this.hideSourcesBar();
+
     if (!this.currentConversation) {
       this.currentConversation = await this.storage.createConversation();
     }
@@ -358,7 +348,9 @@ export class AIChatView extends ItemView {
         statusEl.textContent = i18n("view.thinkingLabel");
       }
 
-      const messages = await this.buildMessages(content, fullModel);
+      // 获取当前活动文件（用户正在查看的笔记）
+      const activeFile = this.app.workspace.getActiveFile();
+      const messages = await this.buildMessages(content, fullModel, activeFile ?? undefined);
 
       // 如果需要构建知识库，确保至少显示1秒
       if (needsBuilding) {
@@ -429,13 +421,25 @@ export class AIChatView extends ItemView {
 
     this.abortController = null;
     this.setGeneratingState(false);
+
+    // AI 回答完成后更新源笔记栏
+    this.updateSourcesBar();
+
+    // 延迟一帧重新滚动到底部（确保 DOM 布局更新后）
+    window.setTimeout(() => {
+      this.messageArea.scrollTop = this.messageArea.scrollHeight;
+    }, 0);
   }
 
-  private async buildMessages(userMessage: string, model: ModelConfig): Promise<ChatMessage[]> {
+  private async buildMessages(userMessage: string, model: ModelConfig, currentFile?: TFile): Promise<ChatMessage[]> {
     const messages: ChatMessage[] = [];
 
     // System prompt - guide AI to reference note locations
+    const todayStr = new Date().toISOString().split("T")[0]; // "2025-06-14"
     const basePrompt = `You are VaultBuddy, an intelligent note assistant deeply integrated into the user's Obsidian vault. You have access to the user's note vault content and conversation history. Your job is to provide accurate, well-structured, and genuinely helpful answers grounded in the user's own notes.
+
+## Current Date
+Today is ${todayStr}. Use this date as a reference when answering time-related questions. For example, if the user asks about "this week", "last month", or "recent notes", calculate the date range starting from ${todayStr}.
 
 ## Language (Highest Priority)
 Detect the language of the user's most recent message and respond EXCLUSIVELY in that language. Ignore the language of the vault notes and context. If the user writes in English, respond in English. If in Chinese, respond in Chinese. If in Japanese, respond in Japanese. Never mix languages in your response. This rule overrides all other instructions.
@@ -443,25 +447,31 @@ Detect the language of the user's most recent message and respond EXCLUSIVELY in
 ## Knowledge Grounding
 - Ground every answer in the provided vault context and conversation history
 - When the context contains relevant information, synthesize it into a clear answer
+- When you find multiple notes with related information, compare and connect them to give a more complete picture
+- When notes contain contradictory information, point out the contradiction explicitly and cite the conflicting sources
 - When the context is insufficient, state exactly what is missing and suggest where the user might find the answer
 - If the user's question is ambiguous or unclear, ask a specific clarifying question before answering
 - NEVER fabricate, guess, or hallucinate information. If you are unsure, say so
+- If the provided context does not contain an answer, DO NOT rely on your pre-training knowledge unless the user explicitly asks a general knowledge question. Clearly distinguish between "found in your notes" and "based on my general knowledge"
 
 ## Note References
 - Cite notes using Obsidian wiki-link syntax: [[exact/file/path]]
 - Only use wiki-links for FILES, never folders. Mention folders in plain text
 - The path must match the exact file path relative to vault root (e.g. [[projects/web-dev/react-hooks]])
 - Keep citations concise — mention the note path for traceability, but do not over-cite
+- When referencing a specific section of a note, include a heading hint in the citation: e.g. "as noted in [[project-plan]] under 'Timeline'"
 
 ## Response Quality
 - Be concise and direct. Skip unnecessary preamble, greetings, and filler
 - When the user asks to summarize, transform, reorganize, or compare content, execute it directly without restating what you are about to do
 - Use Markdown formatting for clarity: headings, lists, tables, code blocks, and bold/italic as appropriate
 - For multi-part questions, structure your answer with clear sections
-- If reviewing or critiquing content, be specific: quote the relevant passage, explain the issue, and suggest a fix`;
+- If reviewing or critiquing content, be specific: quote the relevant passage, explain the issue, and suggest a fix
+- When listing multiple items, prefer bullet points or numbered lists for readability
+- Use code blocks with language tags for any code snippets`;
 
     const systemPrompt = this.plugin.settings.customRules
-      ? `${basePrompt}\n\n${this.plugin.settings.customRules}`
+      ? `${basePrompt}\n\n## Custom Rules\n${this.plugin.settings.customRules}`
       : basePrompt;
     messages.push({ role: "system", content: systemPrompt });
 
@@ -477,20 +487,24 @@ Detect the language of the user's most recent message and respond EXCLUSIVELY in
       // 确保 sourceManager 包含所有文件（只在需要时更新）
       await this.ensureSourceFiles();
 
-      // 用 contextBuilder 构建上下文（分块+相关度排序+截断）
-      const vaultContext = await this.contextBuilder.buildKnowledgeContext(
+      // 用 contextBuilder 构建上下文
+      // 当前活动文件的完整内容将优先注入，其他笔记的相关段落填充剩余空间
+      const contextResult = await this.contextBuilder.buildKnowledgeContext(
         userMessage,
         model,
         this.plugin.settings.maxResponseTokens,
-        undefined,
+        currentFile,
       );
 
-      if (vaultContext) {
+      if (contextResult.context) {
         messages.push({
           role: "system",
-          content: `Here are the relevant notes from the vault (auto-selected based on relevance):\n\n${vaultContext}`,
+          content: `Here is your vault content as context. Current date: ${todayStr}. The current note (if you had one open) is included in full, alongside relevant excerpts from other notes:\n\n${contextResult.context}`,
         });
       }
+
+      // 保存本次使用的源文件路径（稍后 AI 回答完后更新 UI）
+      this.currentSourcePaths = contextResult.sourcePaths;
     } catch (error) {
       console.error("读取仓库内容失败:", error);
     }
@@ -530,24 +544,35 @@ Detect the language of the user's most recent message and respond EXCLUSIVELY in
   // ==================== UI 渲染 ====================
 
   /**
-   * 确保 sourceManager 包含所有 vault 文件
-   * 只在 sourceManager 为空时添加，避免重复扫描
+   * 确保 sourceManager 中的文件列表与 vault 实时同步
+   *
+   * 每次调用都会比较 vault 当前文件列表和 sourceManager 中的列表，
+   * 只做增量更新（添加新文件、移除已删除的文件），不做全量重建。
+   *
+   * 不再依赖事件监听来维护源列表的一致性。
    */
   private async ensureSourceFiles(): Promise<void> {
-    // 如果 sourceManager 已有文件，跳过
-    if (this.sourceManager.getSourceCount() > 0) {
-      return;
+    const currentFiles = this.app.vault.getMarkdownFiles();
+    const currentPaths = new Set(currentFiles.map((f) => f.path));
+    const existingSources = this.sourceManager.getSources();
+    const existingPaths = new Set(existingSources.map((s) => s.path));
+
+    // 添加 vault 中有但 sourceManager 中没有的文件
+    for (const file of currentFiles) {
+      if (!existingPaths.has(file.path)) {
+        this.sourceManager.addSource({
+          type: "file" as const,
+          path: file.path,
+          addedAt: Date.now(),
+        });
+      }
     }
 
-    const allFiles = this.app.vault.getMarkdownFiles();
-    const filesToInclude = allFiles.slice(0, 200);
-
-    for (const file of filesToInclude) {
-      this.sourceManager.addSource({
-        type: "file",
-        path: file.path,
-        addedAt: Date.now(),
-      });
+    // 移除 sourceManager 中有但 vault 中已不存在的文件
+    for (const source of existingSources) {
+      if (!currentPaths.has(source.path)) {
+        this.sourceManager.removeSource(source.path);
+      }
     }
   }
 
@@ -639,6 +664,14 @@ Detect the language of the user's most recent message and respond EXCLUSIVELY in
       (conv) => {
         void this.loadConversation(conv);
       },
+      (deletedId) => {
+        // 如果删除的是当前对话，清空视图并切到新对话
+        if (this.currentConversation?.id === deletedId) {
+          this.currentConversation = null;
+          this.messageArea.empty();
+          this.hideSourcesBar();
+        }
+      },
     );
     modal.open();
   }
@@ -646,6 +679,8 @@ Detect the language of the user's most recent message and respond EXCLUSIVELY in
   private async loadConversation(conversation: Conversation): Promise<void> {
     this.currentConversation = conversation;
     this.messageArea.empty();
+    // 切换对话时隐藏源笔记
+    this.hideSourcesBar();
     for (const msg of conversation.messages) {
       await this.renderMessage(msg);
     }
@@ -655,6 +690,106 @@ Detect the language of the user's most recent message and respond EXCLUSIVELY in
     if (this.isGenerating) return;
     this.currentConversation = null;
     this.messageArea.empty();
+    // 新对话清空源笔记
+    this.currentSourcePaths = [];
+    this.updateSourcesBar();
+  }
+
+  // ==================== 源笔记显示 ====================
+
+  /**
+   * 更新源笔记栏
+   * 根据 currentSourcePaths 刷新底部横条和展开面板
+   */
+  private updateSourcesBar(): void {
+    this.sourcesBarEl.empty();
+    this.sourcesPanelEl.empty();
+
+    const count = this.currentSourcePaths.length;
+
+    if (count === 0) {
+      this.sourcesBarEl.addClass("sources-bar-empty");
+      return;
+    }
+
+    this.sourcesBarEl.removeClass("sources-bar-empty");
+
+    // 左侧文字
+    const labelEl = this.sourcesBarEl.createSpan("sources-bar-label");
+    labelEl.textContent = i18n("sources.matchCount");
+
+    // 右侧数量
+    const countEl = this.sourcesBarEl.createSpan("sources-bar-count");
+    countEl.textContent = `${count}`;
+
+    // 渲染展开面板
+    this.renderSourcesPanel();
+  }
+
+  /**
+   * 收起面板（点击外部时调用）
+   */
+  private collapseSourcesPanel(): void {
+    if (!this.isSourcesPanelOpen) return;
+    this.isSourcesPanelOpen = false;
+    this.sourcesPanelEl.removeClass("expanded");
+    this.sourcesPanelEl.addClass("collapsed");
+  }
+
+  /**
+   * 展开/收起源笔记面板
+   */
+  private toggleSourcesPanel(): void {
+    if (this.currentSourcePaths.length === 0) return;
+
+    this.isSourcesPanelOpen = !this.isSourcesPanelOpen;
+
+    if (this.isSourcesPanelOpen) {
+      this.sourcesPanelEl.removeClass("collapsed");
+      this.sourcesPanelEl.addClass("expanded");
+    } else {
+      this.sourcesPanelEl.removeClass("expanded");
+      this.sourcesPanelEl.addClass("collapsed");
+    }
+  }
+
+  /**
+   * 渲染源笔记展开面板
+   * 显示所有被用于回答的笔记标题，点击跳转
+   */
+  private renderSourcesPanel(): void {
+    this.sourcesPanelEl.empty();
+
+    // 笔记列表（顶部标题由 bar 本身承担，面板内不再重复）
+    const listEl = this.sourcesPanelEl.createDiv("sources-panel-list");
+
+    for (const path of this.currentSourcePaths) {
+      // 用文件名（不含扩展名）作为显示名称
+      const displayName = path.replace(/\.md$/, "").split("/").pop() ?? path;
+      const itemEl = listEl.createDiv("sources-panel-item");
+      itemEl.textContent = displayName;
+
+      // 点击跳转到笔记
+      itemEl.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.app.workspace.openLinkText(path.replace(/\.md$/, ""), "", false);
+        // 跳转后收起面板
+        this.isSourcesPanelOpen = false;
+        this.sourcesPanelEl.removeClass("expanded");
+        this.sourcesPanelEl.addClass("collapsed");
+      });
+    }
+  }
+
+  /**
+   * 隐藏源笔记条（开始思考/切换对话时调用）
+   */
+  private hideSourcesBar(): void {
+    this.currentSourcePaths = [];
+    this.isSourcesPanelOpen = false;
+    this.sourcesPanelEl.removeClass("expanded");
+    this.sourcesPanelEl.addClass("collapsed");
+    this.sourcesBarEl.addClass("sources-bar-empty");
   }
 
   private async loadLastConversation(): Promise<void> {
@@ -673,6 +808,7 @@ class HistoryModal extends Modal {
   private conversations: Conversation[];
   private currentConversationId: string | undefined;
   private onSelect: (conversation: Conversation) => void;
+  private onDelete: (conversationId: string) => void;
 
   constructor(
     app: App,
@@ -680,12 +816,14 @@ class HistoryModal extends Modal {
     conversations: Conversation[],
     currentConversationId: string | undefined,
     onSelect: (conversation: Conversation) => void,
+    onDelete: (conversationId: string) => void,
   ) {
     super(app);
     this.storage = storage;
     this.conversations = conversations;
     this.currentConversationId = currentConversationId;
     this.onSelect = onSelect;
+    this.onDelete = onDelete;
   }
 
   onOpen(): void {
@@ -714,6 +852,7 @@ class HistoryModal extends Modal {
         void this.storage.deleteConversation(conv.id).then(() => {
           convEl.remove();
           new Notice(i18n("view.deleted"));
+          this.onDelete(conv.id);
         });
       });
 

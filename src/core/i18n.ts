@@ -33,6 +33,11 @@ const strings: Record<Lang, Record<string, string>> = {
     "view.msgCount": "条消息",
     "view.deleted": "已删除对话",
 
+    // Sources bar
+    "sources.relatedNotes": "相关的笔记",
+    "sources.matchCount": "被检索的笔记",
+    "sources.noMatch": "没有匹配的笔记",
+
     // Settings
     "settings.tabGeneral": "通用设置",
     "settings.tabModels": "模型配置",
@@ -113,6 +118,11 @@ const strings: Record<Lang, Record<string, string>> = {
     "view.historyTitle": "History",
     "view.msgCount": "messages",
     "view.deleted": "Conversation deleted",
+
+    // Sources bar
+    "sources.relatedNotes": "Related Notes",
+    "sources.matchCount": "Searched Notes",
+    "sources.noMatch": "No matched notes",
 
     // Settings
     "settings.tabGeneral": "General",

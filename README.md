@@ -15,7 +15,38 @@ AI-powered chat assistant for Obsidian. Chat with your entire vault as context.
 
 ## Features
 
-**VaultBuddy** turns your Obsidian vault into an intelligent Q&A system. Simply ask a question, and the AI automatically retrieves the most relevant passages from your notes as context to provide grounded answers. It helps you locate scattered information, connect ideas across different notes, or generate summaries and suggestions—with automatic source citations. Compatible with any API endpoint that supports curl calls, you can configure multiple models and switch between them on the fly. API keys are stored locally with encryption, and all conversations are automatically saved.
+- **📖 Vault-Grounded Q&A** — Ask questions, and the AI retrieves relevant passages from your notes as context to provide grounded answers with automatic source citations.
+- **📄 Full-Note Context** — The note you're currently editing is included in full, so you can summarize, improve, or discuss it with complete awareness.
+- **🔗 Cross-Note Discovery** — Connect ideas across different notes; the AI finds related content even from separate files.
+- **🤖 Multi-Model Support** — Configure multiple OpenAI-compatible models (DeepSeek, OpenAI, Groq, etc.) and switch between them on the fly.
+- **🔒 Local & Secure** — API keys are encrypted and stored locally using Web Crypto API. All conversations are automatically saved.
+- **⚡ Streaming Responses** — See AI responses appear in real-time as they're generated.
+
+## How It Works
+
+VaultBuddy uses a **two-stage retrieval** approach to find the most relevant notes for your question.
+
+### Stage 1: Lightweight Indexing (Fast Scan)
+
+When you ask a question, VaultBuddy first builds a lightweight index of **every file in your vault** using Obsidian's built-in metadata cache — no need to read the full content of each file. It extracts key information from each note:
+
+- **Title** — from frontmatter `title` or filename
+- **Headings** — all `#` titles in the note
+- **Tags** — any `#tag` used in the note
+- **Aliases** — from frontmatter `aliases`
+- **Creation time** — from file system or frontmatter date
+
+These lightweight "file cards" are then scored against your question using keyword matching and synonym expansion, and the top-ranked files are selected as candidates.
+
+### Stage 2: Full-Content Reading (Deep Dive)
+
+Only the candidate files are fully read and split into **chunks** (paragraphs grouped by headings). Each chunk is re-scored against your question, and the most relevant chunks are assembled into the AI's context window — fitting within the model's token limit.
+
+### Priority: Your Current Note
+
+If you have a note open when you ask a question, its **full content is always included first**, ensuring the AI has complete context for tasks like summarizing or improving the note you're working on.
+
+> **Tip**: The richer your note metadata (descriptive titles, meaningful tags, clear headings), the better VaultBuddy can match your notes to your questions.
 
 ## Installation
 
@@ -63,45 +94,6 @@ Click **Save Model**, then select your model as the **Default Model** in the dro
 | Custom Rules             | Extra instructions appended to the system prompt       |
 | Resume Last Conversation | Automatically reload the previous chat on startup      |
 
-## Development
-
-```bash
-# Install dependencies
-npm install
-
-# Watch mode (auto-rebuild)
-npm run dev
-
-# Production build
-npm run build
-
-# Type check only
-tsc --noEmit
-```
-
-### Project Structure
-
-```
-vaultbuddy/
-├── manifest.json
-├── package.json
-├── styles.css
-├── build/                  # Build output
-└── src/
-    ├── core/               # Plugin entry & types
-    │   ├── main.ts
-    │   ├── types.ts
-    │   └── i18n.ts         # Multi-language module
-    ├── services/           # Business logic
-    │   ├── aiService.ts    # API calls & streaming
-    │   ├── contextBuilder.ts # Vault content compression
-    │   └── storage.ts      # Conversation persistence
-    ├── ui/                 # UI components
-    │   ├── view.ts         # Chat panel
-    │   └── settings.ts     # Settings tab
-    └── utils/
-        └── sourceManager.ts
-```
 
 ## Compatibility
 
