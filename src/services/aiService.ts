@@ -124,7 +124,7 @@ export class AIService {
           if (content) {
             yield content;
           }
-        } catch (e) {
+        } catch (_) {
           // 忽略解析错误
         }
       }

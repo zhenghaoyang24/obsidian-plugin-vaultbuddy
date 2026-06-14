@@ -133,7 +133,7 @@ export default class AIChatPlugin extends Plugin {
   }
 
   async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData()) as AIChatSettings;
   }
 
   async saveSettings() {
