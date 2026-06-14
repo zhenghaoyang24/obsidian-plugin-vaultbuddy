@@ -6,17 +6,16 @@
 
 # VaultBuddy
 
-> AI-powered chat assistant for Obsidian. Chat with your entire vault as context.
+AI-powered chat assistant for Obsidian. Chat with your entire vault as context.
 
 [![Obsidian Plugin](https://img.shields.io/badge/Obsidian-Plugin-7C3AED?logo=obsidian)](https://obsidian.md/plugins)
 
----
+<img width="1194" height="929" alt="20260614015448_35_10" src="https://github.com/user-attachments/assets/388f05cb-7f90-4eb9-9235-ea51bd54f18c" />
+<img width="1055" height="858" alt="20260614015503_36_10" src="https://github.com/user-attachments/assets/f9eac27b-703c-40fa-944c-50320372d7fd" />
 
 ## Features
 
 **VaultBuddy** turns your Obsidian vault into an intelligent Q&A system. Simply ask a question, and the AI automatically retrieves the most relevant passages from your notes as context to provide grounded answers. It helps you locate scattered information, connect ideas across different notes, or generate summaries and suggestions—with automatic source citations. Compatible with any API endpoint that supports curl calls, you can configure multiple models and switch between them on the fly. API keys are stored locally with encryption, and all conversations are automatically saved.
-
----
 
 ## Installation
 
@@ -36,8 +35,6 @@
 3. Put the 3 files into that folder
 4. Enable the plugin in Settings → Community Plugins
 
----
-
 ## Quick Start
 
 ### Add a Model
@@ -56,8 +53,6 @@ Open **Settings → VaultBuddy** and click **+ Add Model**. Fill in:
 
 Click **Save Model**, then select your model as the **Default Model** in the dropdown below.
 
----
-
 ## Configuration
 
 | Setting                  | Description                                            |
@@ -67,8 +62,6 @@ Click **Save Model**, then select your model as the **Default Model** in the dro
 | Max Response Tokens      | Maximum length of AI responses (recommended 4096-8192) |
 | Custom Rules             | Extra instructions appended to the system prompt       |
 | Resume Last Conversation | Automatically reload the previous chat on startup      |
-
----
 
 ## Development
 
@@ -110,15 +103,11 @@ vaultbuddy/
         └── sourceManager.ts
 ```
 
----
-
 ## Compatibility
 
 - ✅ **Desktop** — Obsidian v0.15.0+
 - ✅ **Mobile** — Fully supported (`isDesktopOnly: false`)
 - ✅ **API** — OpenAI-compatible endpoints (DeepSeek, OpenAI, Groq, etc.)
-
----
 
 ## Contributing
 
@@ -129,8 +118,6 @@ Contributions are welcome! Here's how you can help:
 3. **Submit PRs** — Fork the repo, create a branch, and submit a pull request
 
 Please follow the existing code style and include tests when applicable.
-
----
 
 ## License
 
