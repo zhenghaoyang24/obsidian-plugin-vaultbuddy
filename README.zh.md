@@ -1,22 +1,21 @@
 <div align="right">
 
-[English](https://github.com/zhenghaoyang24/obsidian-plugin-vaultbuddy/blob/main/README.md) | 中文
+[English](https://github.com/zhenghaoyang24/obsidian-plugin-vaultbuddy/blob/master/README.md) | 中文
 
 </div>
 
 # VaultBuddy
 
-> Obsidian AI 对话助手，基于本地笔记智能回答问题。
+Obsidian AI 对话助手，基于本地笔记智能回答问题。
 
 [![Obsidian Plugin](https://img.shields.io/badge/Obsidian-插件-7C3AED?logo=obsidian)](https://obsidian.md/plugins)
 
----
+<img width="1194" height="929" alt="20260614015448_35_10" src="https://github.com/user-attachments/assets/bbf97004-fa51-4382-984f-108d05eee7b6" />
+<img width="1055" height="858" alt="20260614015503_36_10" src="https://github.com/user-attachments/assets/cd655ad2-e446-4330-b51e-7ef98603fff7" />
 
 ## 功能特性
 
 **VaultBuddy** 可将 Obsidian 知识库转变为智能问答系统。你只需提问，AI 便会从笔记中自动检索最相关的段落作为上下文，给出有据可循的答案。它支持定位分散信息、串联不同笔记中的想法、生成总结或建议，并自动标注引用来源。兼容任意支持 curl 调用的 API 端点，可配置多个模型并随时切换。API 密钥本地加密存储，所有对话自动保存。
-
----
 
 ## 安装方法
 
@@ -36,8 +35,6 @@
 3. 将这 3 个文件放入该文件夹
 4. 打开设置 → 第三方插件 → 启用 VaultBuddy
 
----
-
 ## 快速上手
 
 ### 添加模型
@@ -56,8 +53,6 @@
 
 点击 **保存模型**，然后在下方的下拉框中选择默认模型。
 
----
-
 ## 配置项说明
 
 | 配置项             | 说明                                |
@@ -67,8 +62,6 @@
 | 最大回复 Token     | AI 回答的最大长度（推荐 4096-8192） |
 | 自定义规则         | 附加到系统提示词的额外指令          |
 | 启动时恢复上次对话 | 打开插件时自动加载上次的对话记录    |
-
----
 
 ## 开发指南
 
@@ -110,15 +103,11 @@ vaultbuddy/
         └── sourceManager.ts
 ```
 
----
-
 ## 兼容性
 
 - ✅ **桌面端** — Obsidian v0.15.0+
 - ✅ **移动端** — 完全支持（`isDesktopOnly: false`）
 - ✅ **API** — 兼容 OpenAI 格式接口（DeepSeek、OpenAI、Groq 等）
-
----
 
 ## 参与贡献
 
@@ -130,12 +119,6 @@ vaultbuddy/
 
 请遵循现有代码风格，适用时请包含测试。
 
----
-
 ## 许可证
 
 [MIT](LICENSE)
-
-## 作者
-
-**zhenghaoyang24** — [GitHub](https://github.com/zhenghaoyang24/)
