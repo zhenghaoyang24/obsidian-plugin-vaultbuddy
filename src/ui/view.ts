@@ -14,9 +14,10 @@ import { AIService } from "../services/aiService";
 import { Storage } from "../services/storage";
 import { SourceManager } from "../services/sourceManager";
 import { ContextBuilder, KnowledgeContextResult } from "../services/contextBuilder";
-import { ChatMessage, Conversation, ModelConfig } from "../core/types";
+import { ChatMessage, Conversation, ModelConfig, Skill } from "../core/types";
 import { i18n } from "../core/i18n";
 import { encode } from "gpt-tokenizer";
+import { matchSkills } from "../services/skillMatcher";
 
 export const VIEW_TYPE_AI_CHAT = "vaultbuddy-view";
 
@@ -349,6 +350,7 @@ export class AIChatView extends ItemView {
     const messageEl = wrapper.querySelector(".message") as HTMLElement;
     let fullContent = "";
     let promptTokens = 0;
+    let activatedSkillName = "";
     const contentEl = messageEl.querySelector(".message-content") as HTMLElement;
     const statusEl = contentEl.querySelector(".thinking-status") as HTMLElement;
 
@@ -369,7 +371,11 @@ export class AIChatView extends ItemView {
 
       // 获取当前活动文件（用户正在查看的笔记）
       const activeFile = this.app.workspace.getActiveFile();
-      const messages = await this.buildMessages(content, fullModel, activeFile ?? undefined);
+      const { messages, activatedSkills } = await this.buildMessages(
+        content,
+        fullModel,
+        activeFile ?? undefined,
+      );
 
       // 计算 prompt token 数（所有发送消息的内容）
       promptTokens = messages.reduce((sum, m) => sum + encode(m.content).length, 0);
@@ -404,6 +410,11 @@ export class AIChatView extends ItemView {
       }
 
       messageEl.removeClass("thinking");
+
+      // 记录激活的 Skill 名称（用于在 actions bar 显示）
+      if (activatedSkills.length > 0) {
+        activatedSkillName = activatedSkills.map((s) => s.name).join(" + ");
+      }
     } catch (error: unknown) {
       if (error instanceof Error && error.name === "AbortError") {
         // 用户主动终止：移除思考动画，添加终止提示
@@ -425,6 +436,7 @@ export class AIChatView extends ItemView {
       const assistantMessage: ChatMessage = {
         role: "assistant",
         content: fullContent,
+        skillName: activatedSkillName || undefined,
         usage: { promptTokens, completionTokens },
       };
       await this.storage.addMessage(this.currentConversation.id, assistantMessage);
@@ -433,9 +445,13 @@ export class AIChatView extends ItemView {
 
       // 添加操作按钮和 token 信息（在气泡外面下方）
       const actionsEl = wrapper.createDiv("message-actions");
-      // token 信息
+      // token 信息 + 技能标签
       const tokenEl = actionsEl.createSpan("token-usage");
-      tokenEl.textContent = `${i18n("tokens.prompt")}: ${this.formatTokenCount(promptTokens)}  ${i18n("tokens.completion")}: ${this.formatTokenCount(completionTokens)}`;
+      let tokenText = `${i18n("tokens.prompt")}: ${this.formatTokenCount(promptTokens)}  ${i18n("tokens.completion")}: ${this.formatTokenCount(completionTokens)}`;
+      if (activatedSkillName) {
+        tokenText += `  ${i18n("view.skillLabel")}：${activatedSkillName}`;
+      }
+      tokenEl.textContent = tokenText;
       // 操作按钮
       const actionsRight = actionsEl.createDiv("message-actions-right");
       this.addActionBtn(actionsRight, i18n("view.copy"), fullContent);
@@ -466,7 +482,11 @@ export class AIChatView extends ItemView {
     }, 0);
   }
 
-  private async buildMessages(userMessage: string, model: ModelConfig, currentFile?: TFile): Promise<ChatMessage[]> {
+  private async buildMessages(
+    userMessage: string,
+    model: ModelConfig,
+    currentFile?: TFile,
+  ): Promise<{ messages: ChatMessage[]; activatedSkills: Skill[] }> {
     const messages: ChatMessage[] = [];
 
     // System prompt - guide AI to reference note locations
@@ -505,9 +525,18 @@ Detect the language of the user's most recent message and respond EXCLUSIVELY in
 - When listing multiple items, prefer bullet points or numbered lists for readability
 - Use code blocks with language tags for any code snippets`;
 
-    const systemPrompt = this.plugin.settings.customRules
+    let systemPrompt = this.plugin.settings.customRules
       ? `${basePrompt}\n\n## Custom Rules\n${this.plugin.settings.customRules}`
       : basePrompt;
+
+    // 检查是否有匹配的 Skill，有则注入到 system prompt
+    const matchedSkills = matchSkills(userMessage, this.plugin.settings.skills);
+    const activatedSkills = [...matchedSkills];
+    if (matchedSkills.length > 0) {
+      const skillsBlock = matchedSkills.map((s) => `- **${s.name}**: ${s.instruction}`).join("\n");
+      systemPrompt += `\n\n## Activated Skills\nThe following skills are activated based on your request:\n${skillsBlock}\n\nFollow the instructions of the activated skill(s) above when responding. If multiple skills are activated, combine them appropriately.`;
+    }
+
     messages.push({ role: "system", content: systemPrompt });
 
     // 注入最近历史对话（最多 20 条，排除最后一条即当前用户消息）
@@ -545,7 +574,7 @@ Detect the language of the user's most recent message and respond EXCLUSIVELY in
     }
 
     messages.push({ role: "user", content: userMessage });
-    return messages;
+    return { messages, activatedSkills };
   }
 
   // ==================== 笔记链接处理 ====================
@@ -650,9 +679,13 @@ Detect the language of the user's most recent message and respond EXCLUSIVELY in
     const actionsEl = wrapper.createDiv("message-actions");
 
     if (message.role === "assistant" && message.usage) {
-      // token 信息
+      // token 信息 + 技能标签
       const tokenEl = actionsEl.createSpan("token-usage");
-      tokenEl.textContent = `${i18n("tokens.prompt")}: ${this.formatTokenCount(message.usage.promptTokens)}  ${i18n("tokens.completion")}: ${this.formatTokenCount(message.usage.completionTokens)}`;
+      let tokenText = `${i18n("tokens.prompt")}: ${this.formatTokenCount(message.usage.promptTokens)}  ${i18n("tokens.completion")}: ${this.formatTokenCount(message.usage.completionTokens)}`;
+      if (message.skillName) {
+        tokenText += `  ${i18n("view.skillLabel")}: ${message.skillName}`;
+      }
+      tokenEl.textContent = tokenText;
       // 操作按钮
       const actionsRight = actionsEl.createDiv("message-actions-right");
       this.addActionBtn(actionsRight, i18n("view.copy"), message.content);

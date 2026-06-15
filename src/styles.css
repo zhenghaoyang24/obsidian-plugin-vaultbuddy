@@ -902,3 +902,72 @@
 .sources-panel-item:last-child {
   border-bottom: none;
 }
+
+/* ==================== Skills Tab 卡片 ==================== */
+
+/* Skill 卡片内容行（复用 model-card 的 header/body 布局） */
+.skill-card-row {
+  display: flex;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--background-modifier-border);
+  font-size: 13px;
+}
+.skill-card-row:last-child {
+  border-bottom: none;
+}
+.skill-card-label {
+  flex: 0 0 80px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.skill-card-value {
+  flex: 1;
+  color: var(--text-normal);
+  word-break: break-word;
+}
+.skill-card-instr {
+  color: var(--text-muted);
+  font-style: italic;
+  font-size: 12px;
+}
+
+/* Skill 编辑弹窗 */
+.skill-edit-modal .skill-modal-row {
+  margin-bottom: 12px;
+}
+.skill-edit-modal .skill-modal-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.skill-edit-modal .skill-modal-input {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 5px;
+  background-color: var(--background-primary);
+  color: var(--text-normal);
+  font-size: 13px;
+  box-sizing: border-box;
+}
+.skill-edit-modal .skill-modal-input:focus {
+  outline: none;
+  border-color: var(--interactive-accent);
+}
+.skill-edit-modal .skill-modal-textarea {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 5px;
+  background-color: var(--background-primary);
+  color: var(--text-normal);
+  font-size: 13px;
+  font-family: var(--font-monospace);
+  resize: vertical;
+  box-sizing: border-box;
+}
+.skill-edit-modal .skill-modal-textarea:focus {
+  outline: none;
+  border-color: var(--interactive-accent);
+}

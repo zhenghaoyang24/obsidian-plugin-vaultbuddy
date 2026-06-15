@@ -1,10 +1,10 @@
 import { App, PluginSettingTab, Setting, TextAreaComponent, Modal, Notice } from "obsidian";
 import type AIChatPlugin from "../main";
-import { ModelConfig } from "../core/types";
+import { ModelConfig, Skill } from "../core/types";
 import { AIService } from "../services/aiService";
 import { i18n } from "../core/i18n";
 
-type TabId = "general" | "models";
+type TabId = "general" | "models" | "skills";
 
 export class AIChatSettingTab extends PluginSettingTab {
   plugin: AIChatPlugin;
@@ -30,6 +30,7 @@ export class AIChatSettingTab extends PluginSettingTab {
     const tabs: { id: TabId; label: string }[] = [
       { id: "general", label: i18n("settings.tabGeneral") },
       { id: "models", label: i18n("settings.tabModels") },
+      { id: "skills", label: i18n("settings.tabSkills") },
     ];
 
     const segment = tabBar.createDiv("vaultbuddy-tab-segment");
@@ -51,8 +52,10 @@ export class AIChatSettingTab extends PluginSettingTab {
 
     if (this.activeTab === "general") {
       this.drawGeneralTab(tabContent);
-    } else {
+    } else if (this.activeTab === "models") {
       this.drawModelsTab(tabContent);
+    } else {
+      this.drawSkillsTab(tabContent);
     }
   }
 
@@ -533,5 +536,219 @@ export class AIChatSettingTab extends PluginSettingTab {
     toggles.forEach((btn) => {
       btn.toggleClass("model-card-toggle-hidden", disabled);
     });
+  }
+
+  // ==================== Skills Tab ====================
+
+  private drawSkillsTab(containerEl: HTMLElement): void {
+    new Setting(containerEl).setName(i18n("settings.skills")).setHeading();
+
+    // 添加按钮
+    const topRow = containerEl.createDiv("vaultbuddy-model-top-row");
+    new Setting(topRow)
+      .setName(i18n("settings.addSkill"))
+      .setDesc(i18n("settings.addSkillDesc"))
+      .addButton((btn) =>
+        btn
+          .setButtonText(i18n("settings.addSkill"))
+          .setCta()
+          .onClick(() => {
+            const modal = new SkillEditModal(this.app, null, (skill) => {
+              this.plugin.settings.skills.unshift(skill);
+              this.plugin.saveSettings();
+              new Notice(i18n("settings.skillAdded"));
+              this.display();
+            });
+            modal.open();
+          }),
+      );
+
+    // 已保存的 Skill 列表（按添加时间倒序）
+    const sorted = [...this.plugin.settings.skills].reverse();
+    for (const skill of sorted) {
+      const index = this.plugin.settings.skills.indexOf(skill);
+      this.drawSkillCard(containerEl, skill, index);
+    }
+
+    // 空状态提示
+    if (this.plugin.settings.skills.length === 0) {
+      const emptyHint = containerEl.createDiv("model-empty-hint");
+      emptyHint.textContent = i18n("settings.noSkills");
+    }
+  }
+
+  private drawSkillCard(containerEl: HTMLElement, skill: Skill, index: number): void {
+    const card = containerEl.createDiv("model-card");
+
+    const cardHeader = card.createDiv("model-card-header");
+    const headerLeft = cardHeader.createDiv("model-card-header-left");
+    headerLeft.createEl("strong", { text: skill.name || i18n("settings.unnamedSkill") });
+
+    const addedTime = new Date(parseInt(skill.id) || Date.now()).toLocaleString();
+    headerLeft.createEl("span", {
+      text: `${i18n("settings.addTime")} ${addedTime}`,
+      cls: "model-card-time",
+    });
+
+    const headerRight = cardHeader.createDiv("model-card-header-right");
+
+    const editBtn = headerRight.createEl("button", {
+      text: i18n("settings.edit"),
+      cls: "model-card-btn",
+    });
+    editBtn.addEventListener("click", () => {
+      const modal = new SkillEditModal(this.app, skill, (updated) => {
+        Object.assign(skill, updated);
+        this.plugin.saveSettings();
+        new Notice(i18n("settings.skillUpdated"));
+        this.display();
+      });
+      modal.open();
+    });
+
+    const deleteBtn = headerRight.createEl("button", {
+      text: i18n("settings.delete"),
+      cls: "model-card-btn model-card-btn-danger",
+    });
+    deleteBtn.addEventListener("click", () => this.confirmDeleteSkill(skill, index));
+
+    // 卡片内容：description + instruction 摘要
+    const cardBody = card.createDiv("model-card-body");
+
+    const descRow = cardBody.createDiv("skill-card-row");
+    descRow.createDiv("skill-card-label").textContent = i18n("settings.skillDescription");
+    descRow.createDiv("skill-card-value").textContent = skill.description || "-";
+
+    const instrRow = cardBody.createDiv("skill-card-row");
+    instrRow.createDiv("skill-card-label").textContent = i18n("settings.skillInstruction");
+    const instrValue = instrRow.createDiv("skill-card-value skill-card-instr");
+    instrValue.textContent = skill.instruction.length > 120
+      ? skill.instruction.substring(0, 120) + "..."
+      : skill.instruction || "-";
+  }
+
+  private confirmDeleteSkill(skill: Skill, index: number): void {
+    const modal = new Modal(this.app);
+    modal.titleEl.setText(i18n("settings.confirmDelete"));
+
+    const content = modal.contentEl;
+    content.createEl("p", {
+      text: `${i18n("settings.deleteMsg")} "${skill.name || i18n("settings.unnamedSkill")}"?`,
+    });
+    content.createEl("p", { text: i18n("settings.irreversible"), cls: "modal-warning" });
+
+    const btnRow = content.createDiv("modal-btn-row");
+
+    btnRow
+      .createEl("button", { text: i18n("settings.cancel") })
+      .addEventListener("click", () => modal.close());
+
+    const confirmBtn = btnRow.createEl("button", {
+      text: i18n("settings.confirmDelete"),
+      cls: "model-card-btn-danger",
+    });
+    confirmBtn.addEventListener("click", () => {
+      this.plugin.settings.skills.splice(index, 1);
+      this.plugin.saveSettings();
+      modal.close();
+      this.display();
+    });
+
+    modal.open();
+  }
+}
+
+// ==================== Skill 编辑弹窗 ====================
+
+class SkillEditModal extends Modal {
+  private skill: Skill | null;
+  private onSave: (skill: Skill) => void;
+
+  constructor(
+    app: App,
+    existing: Skill | null,
+    onSave: (skill: Skill) => void,
+  ) {
+    super(app);
+    this.skill = existing;
+    this.onSave = onSave;
+  }
+
+  onOpen(): void {
+    const { contentEl } = this;
+    contentEl.addClass("skill-edit-modal");
+
+    const isEdit = this.skill !== null;
+    this.titleEl.setText(
+      isEdit ? i18n("settings.skillEditTitle") : i18n("settings.skillAddTitle"),
+    );
+
+    // Name
+    const nameRow = contentEl.createDiv("skill-modal-row");
+    nameRow.createDiv("skill-modal-label").textContent = i18n("settings.skillName");
+    const nameInput = nameRow.createEl("input", {
+      type: "text",
+      placeholder: i18n("settings.skillNamePlaceholder"),
+      value: this.skill?.name ?? "",
+    });
+    nameInput.addClass("skill-modal-input");
+
+    // Description
+    const descRow = contentEl.createDiv("skill-modal-row");
+    descRow.createDiv("skill-modal-label").textContent = i18n("settings.skillDescription");
+    const descInput = descRow.createEl("input", {
+      type: "text",
+      placeholder: i18n("settings.skillDescriptionPlaceholder"),
+      value: this.skill?.description ?? "",
+    });
+    descInput.addClass("skill-modal-input");
+
+    // Instruction (多行)
+    const instrRow = contentEl.createDiv("skill-modal-row");
+    instrRow.createDiv("skill-modal-label").textContent = i18n("settings.skillInstruction");
+    const instrInput = instrRow.createEl("textarea", {
+      placeholder: i18n("settings.skillInstructionPlaceholder"),
+      text: this.skill?.instruction ?? "",
+    });
+    instrInput.addClass("skill-modal-textarea");
+    instrInput.rows = 6;
+
+    // 按钮行
+    const btnRow = contentEl.createDiv("modal-btn-row");
+    btnRow.style.marginTop = "12px";
+
+    const cancelBtn = btnRow.createEl("button", {
+      text: i18n("settings.cancel"),
+    });
+    cancelBtn.addEventListener("click", () => this.close());
+
+    const saveBtn = btnRow.createEl("button", {
+      text: i18n("settings.save"),
+      cls: "model-card-btn-save",
+    });
+    saveBtn.addEventListener("click", () => {
+      const name = nameInput.value.trim();
+      const description = descInput.value.trim();
+      const instruction = instrInput.value.trim();
+
+      if (!name || !description || !instruction) {
+        new Notice(i18n("settings.fillAllFields"));
+        return;
+      }
+
+      const result: Skill = {
+        id: this.skill?.id ?? Date.now().toString(),
+        name,
+        description,
+        instruction,
+      };
+
+      this.onSave(result);
+      this.close();
+    });
+  }
+
+  onClose(): void {
+    this.contentEl.empty();
   }
 }
