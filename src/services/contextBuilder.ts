@@ -16,7 +16,7 @@ type TextLang = "zh" | "en";
 // 移除条件：当 tsconfig lib 升级到 ES2022.Intl 时
 // =========================================================================
 declare global {
-  // eslint-disable-next-line @typescript-eslint/no-namespace
+  // eslint-disable-next-line @typescript-eslint/no-namespace -- Augment global Intl namespace: Segmenter types exist at runtime in Electron/Chrome but not in TS lib
   namespace Intl {
     interface SegmenterOptions {
       granularity: "grapheme" | "word" | "sentence";
@@ -90,35 +90,223 @@ type StopWordsList = string[];
 
 const STOP_WORDS: Record<TextLang, StopWordsList> = {
   zh: [
-    "的", "了", "在", "是", "我", "有", "和", "就", "不", "人",
-    "都", "一", "个", "上", "也", "很", "到", "说", "要", "去",
-    "你", "会", "着", "没有", "看", "好", "自己", "这", "他",
-    "她", "它", "们", "那", "里", "为", "什么", "怎么", "如何",
-    "吗", "啊", "呢", "吧", "呀", "哦", "嗯", "嘛", "喔",
-    "可以", "能", "能够", "应该", "可能", "需要", "必须",
-    "这个", "那个", "这些", "那些", "因为", "所以", "但是", "如果",
-    "虽然", "然而", "而且", "或者", "还是", "只是", "不过",
-    "已经", "正在", "将要", "之前", "之后", "现在", "目前",
-    "用", "把", "被", "让", "给", "对", "从", "向", "跟",
+    "的",
+    "了",
+    "在",
+    "是",
+    "我",
+    "有",
+    "和",
+    "就",
+    "不",
+    "人",
+    "都",
+    "一",
+    "个",
+    "上",
+    "也",
+    "很",
+    "到",
+    "说",
+    "要",
+    "去",
+    "你",
+    "会",
+    "着",
+    "没有",
+    "看",
+    "好",
+    "自己",
+    "这",
+    "他",
+    "她",
+    "它",
+    "们",
+    "那",
+    "里",
+    "为",
+    "什么",
+    "怎么",
+    "如何",
+    "吗",
+    "啊",
+    "呢",
+    "吧",
+    "呀",
+    "哦",
+    "嗯",
+    "嘛",
+    "喔",
+    "可以",
+    "能",
+    "能够",
+    "应该",
+    "可能",
+    "需要",
+    "必须",
+    "这个",
+    "那个",
+    "这些",
+    "那些",
+    "因为",
+    "所以",
+    "但是",
+    "如果",
+    "虽然",
+    "然而",
+    "而且",
+    "或者",
+    "还是",
+    "只是",
+    "不过",
+    "已经",
+    "正在",
+    "将要",
+    "之前",
+    "之后",
+    "现在",
+    "目前",
+    "用",
+    "把",
+    "被",
+    "让",
+    "给",
+    "对",
+    "从",
+    "向",
+    "跟",
   ],
   en: [
-    "the", "a", "an", "is", "are", "was", "were", "be", "been",
-    "being", "in", "on", "at", "to", "for", "of", "with", "by",
-    "this", "that", "these", "those", "it", "its", "you", "your",
-    "i", "we", "they", "he", "she", "do", "does", "did", "doing",
-    "will", "would", "could", "should", "may", "might", "shall",
-    "have", "has", "had", "having", "not", "no", "nor", "but",
-    "and", "or", "if", "so", "as", "than", "then", "just",
-    "about", "how", "what", "why", "when", "where", "who", "whom",
-    "which", "all", "each", "every", "both", "few", "more", "most",
-    "other", "some", "such", "only", "own", "same", "very",
-    "too", "can", "get", "got", "gotten", "make", "made", "much",
-    "also", "well", "even", "still", "already", "now", "here",
-    "there", "up", "down", "out", "into", "over", "again",
-    "further", "once", "then", "than", "because", "since", "until",
-    "while", "though", "although", "yet", "after", "before",
-    "between", "under", "above", "below", "off", "during", "without",
-    "across", "through", "via", "am", "upon", "ago", "done",
+    "the",
+    "a",
+    "an",
+    "is",
+    "are",
+    "was",
+    "were",
+    "be",
+    "been",
+    "being",
+    "in",
+    "on",
+    "at",
+    "to",
+    "for",
+    "of",
+    "with",
+    "by",
+    "this",
+    "that",
+    "these",
+    "those",
+    "it",
+    "its",
+    "you",
+    "your",
+    "i",
+    "we",
+    "they",
+    "he",
+    "she",
+    "do",
+    "does",
+    "did",
+    "doing",
+    "will",
+    "would",
+    "could",
+    "should",
+    "may",
+    "might",
+    "shall",
+    "have",
+    "has",
+    "had",
+    "having",
+    "not",
+    "no",
+    "nor",
+    "but",
+    "and",
+    "or",
+    "if",
+    "so",
+    "as",
+    "than",
+    "then",
+    "just",
+    "about",
+    "how",
+    "what",
+    "why",
+    "when",
+    "where",
+    "who",
+    "whom",
+    "which",
+    "all",
+    "each",
+    "every",
+    "both",
+    "few",
+    "more",
+    "most",
+    "other",
+    "some",
+    "such",
+    "only",
+    "own",
+    "same",
+    "very",
+    "too",
+    "can",
+    "get",
+    "got",
+    "gotten",
+    "make",
+    "made",
+    "much",
+    "also",
+    "well",
+    "even",
+    "still",
+    "already",
+    "now",
+    "here",
+    "there",
+    "up",
+    "down",
+    "out",
+    "into",
+    "over",
+    "again",
+    "further",
+    "once",
+    "then",
+    "than",
+    "because",
+    "since",
+    "until",
+    "while",
+    "though",
+    "although",
+    "yet",
+    "after",
+    "before",
+    "between",
+    "under",
+    "above",
+    "below",
+    "off",
+    "during",
+    "without",
+    "across",
+    "through",
+    "via",
+    "am",
+    "upon",
+    "ago",
+    "done",
   ],
 };
 
@@ -301,9 +489,7 @@ export class ContextBuilder {
 
     // 根据用户查询对文件索引排序（关键词 + 时间融合）
     const lang = this.detectTextLanguage(userMessage);
-    const timeRange = this.hasTimeIntent(userMessage)
-      ? this.parseTimeRange(userMessage)
-      : null;
+    const timeRange = this.hasTimeIntent(userMessage) ? this.parseTimeRange(userMessage) : null;
 
     const rankedFiles = this.rankFilesByQuery(fileIndices, userMessage);
 
@@ -315,18 +501,17 @@ export class ContextBuilder {
       const queryKeywords = this.extractKeywordsWithSynonyms(userMessage, lang);
 
       const scoredWithTime = fileIndices.map((fi) => {
-        const keywordScore = rankedFiles.indexOf(fi.file) >= 0
-          ? 1 - rankedFiles.indexOf(fi.file) / Math.max(rankedFiles.length, 1)
-          : 0;
+        const keywordScore =
+          rankedFiles.indexOf(fi.file) >= 0
+            ? 1 - rankedFiles.indexOf(fi.file) / Math.max(rankedFiles.length, 1)
+            : 0;
 
         const fileDate = this.getFileEffectiveDate(fi);
         const timeScore = this.computeTimeScore(fileDate, timeRange);
 
         // 混合评分：无关键词时全依时间，有关键词时各占一半
         const hasKeywords = queryKeywords.length > 0;
-        const combinedScore = hasKeywords
-          ? keywordScore * 0.5 + timeScore * 0.5
-          : timeScore;
+        const combinedScore = hasKeywords ? keywordScore * 0.5 + timeScore * 0.5 : timeScore;
 
         return { file: fi.file, score: combinedScore };
       });
@@ -440,9 +625,7 @@ export class ContextBuilder {
       }
 
       if (relatedParts.length > 0) {
-        resultParts.push(
-          `## 📚 Related Notes\n${relatedParts.join("\n\n---\n\n")}`,
-        );
+        resultParts.push(`## 📚 Related Notes\n${relatedParts.join("\n\n---\n\n")}`);
       }
     }
 
@@ -524,10 +707,7 @@ export class ContextBuilder {
     const headings = cache?.headings?.map((h) => h.heading) ?? [];
 
     // 标签（去掉 # 前缀）
-    const tags =
-      cache?.tags
-        ?.map((t) => t.tag.replace(/^#/, ""))
-        .filter((t) => t.length > 0) ?? [];
+    const tags = cache?.tags?.map((t) => t.tag.replace(/^#/, "")).filter((t) => t.length > 0) ?? [];
 
     // 从 frontmatter 解析日期
     const frontmatterDate = this.parseFrontmatterDate(cache?.frontmatter);
@@ -549,14 +729,17 @@ export class ContextBuilder {
    * 从 frontmatter 中解析日期字段
    * 按优先级尝试常见日期字段名
    */
-  private parseFrontmatterDate(
-    frontmatter: Record<string, unknown> | undefined,
-  ): number | null {
+  private parseFrontmatterDate(frontmatter: Record<string, unknown> | undefined): number | null {
     if (!frontmatter) return null;
 
     const dateFields = [
-      "createTime", "created", "createdAt", "created_at",
-      "date", "creation_date", "created_date",
+      "createTime",
+      "created",
+      "createdAt",
+      "created_at",
+      "date",
+      "creation_date",
+      "created_date",
     ];
 
     for (const field of dateFields) {
@@ -594,13 +777,7 @@ export class ContextBuilder {
 
     for (const fi of fileIndices) {
       // 构建轻量文档文本（只用索引字段，不读文件内容）
-      const docText = [
-        fi.title,
-        fi.basename,
-        ...fi.aliases,
-        ...fi.headings,
-        ...fi.tags,
-      ].join(" ");
+      const docText = [fi.title, fi.basename, ...fi.aliases, ...fi.headings, ...fi.tags].join(" ");
 
       const docKeywords = this.extractKeywords(docText, lang);
 
@@ -677,11 +854,23 @@ export class ContextBuilder {
         const unit = recentMatch[2];
         let ms: number;
         switch (unit) {
-          case "天": case "日": ms = num * 86400000; break;
-          case "周": case "星期": ms = num * 7 * 86400000; break;
-          case "个月": case "月": ms = num * 30 * 86400000; break;
-          case "年": ms = num * 365 * 86400000; break;
-          default: return null;
+          case "天":
+          case "日":
+            ms = num * 86400000;
+            break;
+          case "周":
+          case "星期":
+            ms = num * 7 * 86400000;
+            break;
+          case "个月":
+          case "月":
+            ms = num * 30 * 86400000;
+            break;
+          case "年":
+            ms = num * 365 * 86400000;
+            break;
+          default:
+            return null;
         }
         return { start: now - ms, end: now };
       }
@@ -729,7 +918,9 @@ export class ContextBuilder {
     // English
     if (lang === "en") {
       // "last X days/weeks/months/years"
-      const lastMatch = query.match(/last\s+(\d+)\s+(day|days|week|weeks|month|months|year|years)/i);
+      const lastMatch = query.match(
+        /last\s+(\d+)\s+(day|days|week|weeks|month|months|year|years)/i,
+      );
       if (lastMatch) {
         const num = parseInt(lastMatch[1], 10);
         const unit = lastMatch[2].toLowerCase();
@@ -815,24 +1006,22 @@ export class ContextBuilder {
   private lightStem(word: string): string {
     const lower = word.toLowerCase();
     // 所有格/缩写去除
-    let stem = lower
-      .replace(/'(?:s|re|ve|ll|t|m|d)$/, "")
-      .replace(/^(?:')/, "");
+    let stem = lower.replace(/'(?:s|re|ve|ll|t|m|d)$/, "").replace(/^(?:')/, "");
     // 常见后缀剥离
     stem = stem
-      .replace(/(?:tion|sion)$/, "t")      // configuration → configurat
-      .replace(/(?:ize|ise)$/, "")          // optimize → optim
-      .replace(/(?:ative|ive)$/, "")        // creative → creat
-      .replace(/(?:ment|ness)$/, "")        // adjustment → adjust, darkness → dark
-      .replace(/(?:ity|ty)$/, "t")          // activity → activt
-      .replace(/(?:ful|less|ous)$/, "")     // helpful → help, useless → use
-      .replace(/(?:able|ible)$/, "")        // usable → us
-      .replace(/ing$/, "")                  // running → runn
-      .replace(/ly$/, "")                   // quickly → quick
-      .replace(/s$/, "")                    // models → model
-      .replace(/ed$/, "")                   // removed → remov
-      .replace(/(?:er|or)$/, "")            // teacher → teach
-      .replace(/al$/, "")                   // global → glob
+      .replace(/(?:tion|sion)$/, "t") // configuration → configurat
+      .replace(/(?:ize|ise)$/, "") // optimize → optim
+      .replace(/(?:ative|ive)$/, "") // creative → creat
+      .replace(/(?:ment|ness)$/, "") // adjustment → adjust, darkness → dark
+      .replace(/(?:ity|ty)$/, "t") // activity → activt
+      .replace(/(?:ful|less|ous)$/, "") // helpful → help, useless → use
+      .replace(/(?:able|ible)$/, "") // usable → us
+      .replace(/ing$/, "") // running → runn
+      .replace(/ly$/, "") // quickly → quick
+      .replace(/s$/, "") // models → model
+      .replace(/ed$/, "") // removed → remov
+      .replace(/(?:er|or)$/, "") // teacher → teach
+      .replace(/al$/, "") // global → glob
       // 重复字母简化（如 runn → run）
       .replace(/(.)\1{2,}/, "$1$1");
     return stem;
@@ -1114,15 +1303,23 @@ export class ContextBuilder {
       const endLine = section.contentLines[section.contentLines.length - 1];
 
       // 包含重叠区域
-      const overlapStart = i > 0
-        ? Math.max(section.contentLines[0] - OVERLAP_LINES, sections[i - 1].contentLines[0])
-        : startLine;
+      const overlapStart =
+        i > 0
+          ? Math.max(section.contentLines[0] - OVERLAP_LINES, sections[i - 1].contentLines[0])
+          : startLine;
 
-      const overlapEnd = i < sections.length - 1
-        ? Math.min(section.contentLines[section.contentLines.length - 1] + OVERLAP_LINES, sections[i + 1].contentLines[section.contentLines.length - 1])
-        : endLine;
+      const overlapEnd =
+        i < sections.length - 1
+          ? Math.min(
+              section.contentLines[section.contentLines.length - 1] + OVERLAP_LINES,
+              sections[i + 1].contentLines[section.contentLines.length - 1],
+            )
+          : endLine;
 
-      let chunkText = lines.slice(overlapStart, overlapEnd + 1).join("\n").trim();
+      let chunkText = lines
+        .slice(overlapStart, overlapEnd + 1)
+        .join("\n")
+        .trim();
 
       // 如果没有标题且内容很短，尝试和上一个或下一个合并
       if (!section.heading && chunkText.length < MIN_CHUNK_SIZE) {

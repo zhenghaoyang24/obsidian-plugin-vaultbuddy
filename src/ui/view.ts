@@ -16,6 +16,7 @@ import { SourceManager } from "../services/sourceManager";
 import { ContextBuilder, KnowledgeContextResult } from "../services/contextBuilder";
 import { ChatMessage, Conversation, ModelConfig } from "../core/types";
 import { i18n } from "../core/i18n";
+import { encode } from "gpt-tokenizer";
 
 export const VIEW_TYPE_AI_CHAT = "vaultbuddy-view";
 
@@ -42,6 +43,20 @@ export class AIChatView extends ItemView {
   private sourcesPanelEl: HTMLElement;
   private currentSourcePaths: string[] = [];
   private isSourcesPanelOpen: boolean = false;
+  private conversationStatsEl: HTMLElement;
+
+  /** 格式化 token 数量：>= 1,000,000 显示 M，>= 1,000 显示 k，其余原样 */
+  private formatTokenCount(n: number): string {
+    if (n >= 1_000_000) {
+      const m = n / 1_000_000;
+      return m % 1 === 0 ? `${m}m` : `${m.toFixed(1)}m`;
+    }
+    if (n >= 1_000) {
+      const k = n / 1_000;
+      return k % 1 === 0 ? `${k}k` : `${k.toFixed(1)}k`;
+    }
+    return String(n);
+  }
 
   constructor(leaf: WorkspaceLeaf, plugin: AIChatPlugin) {
     super(leaf);
@@ -95,6 +110,9 @@ export class AIChatView extends ItemView {
       .onClick(() => {
         if (!this.isGenerating) this.newConversation();
       });
+
+    // 对话统计信息（在标题下方）
+    this.conversationStatsEl = container.createDiv("conversation-stats");
 
     // 消息区域
     this.messageArea = container.createDiv("message-area");
@@ -330,6 +348,7 @@ export class AIChatView extends ItemView {
     const wrapper = this.createStreamingMessage();
     const messageEl = wrapper.querySelector(".message") as HTMLElement;
     let fullContent = "";
+    let promptTokens = 0;
     const contentEl = messageEl.querySelector(".message-content") as HTMLElement;
     const statusEl = contentEl.querySelector(".thinking-status") as HTMLElement;
 
@@ -351,6 +370,9 @@ export class AIChatView extends ItemView {
       // 获取当前活动文件（用户正在查看的笔记）
       const activeFile = this.app.workspace.getActiveFile();
       const messages = await this.buildMessages(content, fullModel, activeFile ?? undefined);
+
+      // 计算 prompt token 数（所有发送消息的内容）
+      promptTokens = messages.reduce((sum, m) => sum + encode(m.content).length, 0);
 
       // 如果需要构建知识库，确保至少显示1秒
       if (needsBuilding) {
@@ -399,18 +421,30 @@ export class AIChatView extends ItemView {
 
     // 保存已生成的内容（即使被终止也保存）
     if (fullContent) {
+      const completionTokens = encode(fullContent).length;
       const assistantMessage: ChatMessage = {
         role: "assistant",
         content: fullContent,
+        usage: { promptTokens, completionTokens },
       };
       await this.storage.addMessage(this.currentConversation.id, assistantMessage);
       this.currentConversation.messages.push(assistantMessage);
       this.currentConversation.updatedAt = Date.now();
-    }
 
-    // 添加操作按钮（在气泡外面下方）
-    const actionsEl = wrapper.createDiv("message-actions");
-    this.addActionBtn(actionsEl, i18n("view.copy"), fullContent);
+      // 添加操作按钮和 token 信息（在气泡外面下方）
+      const actionsEl = wrapper.createDiv("message-actions");
+      // token 信息
+      const tokenEl = actionsEl.createSpan("token-usage");
+      tokenEl.textContent = `${i18n("tokens.prompt")}: ${this.formatTokenCount(promptTokens)}  ${i18n("tokens.completion")}: ${this.formatTokenCount(completionTokens)}`;
+      // 操作按钮
+      const actionsRight = actionsEl.createDiv("message-actions-right");
+      this.addActionBtn(actionsRight, i18n("view.copy"), fullContent);
+    } else {
+      // 没有内容时也创建空的 actions 占位
+      const actionsEl = wrapper.createDiv("message-actions");
+      const actionsRight = actionsEl.createDiv("message-actions-right");
+      this.addActionBtn(actionsRight, i18n("view.copy"), fullContent);
+    }
 
     // 如果是被终止的，在消息后追加终止提示
     if (this.wasAborted) {
@@ -422,8 +456,9 @@ export class AIChatView extends ItemView {
     this.abortController = null;
     this.setGeneratingState(false);
 
-    // AI 回答完成后更新源笔记栏
+    // AI 回答完成后更新源笔记栏和对话统计
     this.updateSourcesBar();
+    this.updateConversationStats();
 
     // 延迟一帧重新滚动到底部（确保 DOM 布局更新后）
     window.setTimeout(() => {
@@ -611,12 +646,23 @@ Detect the language of the user's most recent message and respond EXCLUSIVELY in
       contentEl.textContent = message.content;
     }
 
-    // 操作按钮（在气泡外面下方）
+    // 操作按钮和 token 信息（在气泡外面下方）
     const actionsEl = wrapper.createDiv("message-actions");
-    this.addActionBtn(actionsEl, i18n("view.copy"), message.content);
 
-    if (message.role === "user") {
-      this.addActionBtn(actionsEl, i18n("view.fill"), message.content, true);
+    if (message.role === "assistant" && message.usage) {
+      // token 信息
+      const tokenEl = actionsEl.createSpan("token-usage");
+      tokenEl.textContent = `${i18n("tokens.prompt")}: ${this.formatTokenCount(message.usage.promptTokens)}  ${i18n("tokens.completion")}: ${this.formatTokenCount(message.usage.completionTokens)}`;
+      // 操作按钮
+      const actionsRight = actionsEl.createDiv("message-actions-right");
+      this.addActionBtn(actionsRight, i18n("view.copy"), message.content);
+    } else {
+      // 无 token 数据时，按钮水平排列
+      const actionsRight = actionsEl.createDiv("message-actions-right");
+      this.addActionBtn(actionsRight, i18n("view.copy"), message.content);
+      if (message.role === "user") {
+        this.addActionBtn(actionsRight, i18n("view.fill"), message.content, true);
+      }
     }
 
     this.messageArea.scrollTop = this.messageArea.scrollHeight;
@@ -684,25 +730,55 @@ Detect the language of the user's most recent message and respond EXCLUSIVELY in
     for (const msg of conversation.messages) {
       await this.renderMessage(msg);
     }
+    // 切换后刷新对话统计和源笔记
+    this.updateConversationStats();
+    this.updateSourcesBar();
   }
 
   private async newConversation(): Promise<void> {
     if (this.isGenerating) return;
     this.currentConversation = null;
     this.messageArea.empty();
-    // 新对话清空源笔记
+    // 新对话清空源笔记和统计
     this.currentSourcePaths = [];
+    this.updateConversationStats();
     this.updateSourcesBar();
   }
 
-  // ==================== 源笔记显示 ====================
+  // ==================== 对话统计 & 源笔记显示 ====================
+
+  /**
+   * 更新顶部对话统计（累计 token + 消息条数）
+   */
+  private updateConversationStats(): void {
+    this.conversationStatsEl.empty();
+
+    if (!this.currentConversation) return;
+
+    const msgs = this.currentConversation.messages;
+    if (msgs.length === 0) return;
+
+    let totalTokens = 0;
+    for (const msg of msgs) {
+      if (msg.usage) {
+        totalTokens += msg.usage.promptTokens + msg.usage.completionTokens;
+      }
+    }
+
+    const parts: string[] = [];
+    parts.push(`${i18n("tokens.conversationTotal")}: ${this.formatTokenCount(totalTokens)}`);
+    parts.push(`${msgs.length} ${i18n("tokens.messages")}`);
+    this.conversationStatsEl.textContent = parts.join("  ·  ");
+  }
 
   /**
    * 更新源笔记栏
-   * 根据 currentSourcePaths 刷新底部横条和展开面板
    */
   private updateSourcesBar(): void {
     this.sourcesBarEl.empty();
+    this.isSourcesPanelOpen = false;
+    this.sourcesPanelEl.removeClass("expanded");
+    this.sourcesPanelEl.addClass("collapsed");
     this.sourcesPanelEl.empty();
 
     const count = this.currentSourcePaths.length;

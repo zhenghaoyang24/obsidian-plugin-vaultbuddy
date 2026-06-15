@@ -29,15 +29,15 @@
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^20.11.0",
-    "@typescript-eslint/eslint-plugin": "^6.19.0",
-    "@typescript-eslint/parser": "^6.19.0",
-    "esbuild": "^0.19.11",
+    "@typescript-eslint/eslint-plugin": "^8.61.0",
+    "@typescript-eslint/parser": "^8.61.0",
+    "esbuild": "^0.28.1",
     "obsidian": "latest",
     "tslib": "2.6.2",
-    "typescript": "5.3.3"
+    "typescript": "5.8.3"
   },
   "dependencies": {
-    "gpt-tokenizer": "^2.1.1",
+    "gpt-tokenizer": "^3.4.0",
     "marked": "^18.0.5"
   }
 }

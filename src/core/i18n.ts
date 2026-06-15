@@ -33,6 +33,13 @@ const strings: Record<Lang, Record<string, string>> = {
     "view.msgCount": "条消息",
     "view.deleted": "已删除对话",
 
+    // Token usage
+    "tokens.prompt": "输入",
+    "tokens.completion": "输出",
+    "tokens.total": "共",
+    "tokens.conversationTotal": "累计 token",
+    "tokens.messages": "条消息",
+
     // Sources bar
     "sources.relatedNotes": "相关的笔记",
     "sources.matchCount": "被检索的笔记",
@@ -118,6 +125,13 @@ const strings: Record<Lang, Record<string, string>> = {
     "view.historyTitle": "History",
     "view.msgCount": "messages",
     "view.deleted": "Conversation deleted",
+
+    // Token usage
+    "tokens.prompt": "Input",
+    "tokens.completion": "Output",
+    "tokens.total": "Total",
+    "tokens.conversationTotal": "Total tokens",
+    "tokens.messages": "messages",
 
     // Sources bar
     "sources.relatedNotes": "Related Notes",

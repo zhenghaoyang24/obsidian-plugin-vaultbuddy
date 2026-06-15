@@ -93,6 +93,15 @@
   pointer-events: none;
 }
 
+/* 对话统计（标题下方） */
+.conversation-stats {
+  font-size: 11px;
+  color: var(--text-muted);
+  opacity: 0.65;
+  padding: 0 16px 4px;
+  text-align: center;
+}
+
 /* 消息区域 */
 .message-area {
   flex: 1;
@@ -339,14 +348,20 @@
 /* 消息操作按钮行（在气泡外面下方） */
 .message-actions {
   display: flex;
-  gap: 6px;
+  flex-direction: column;
+  gap: 4px;
   margin-top: 4px;
-  opacity: 0;
-  transition: opacity 0.15s;
   padding: 0 4px;
 }
 
-.message-wrapper:hover .message-actions {
+.message-actions-right {
+  display: flex;
+  gap: 6px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.message-wrapper:hover .message-actions-right {
   opacity: 1;
 }
 
@@ -366,7 +381,15 @@
   color: var(--text-normal);
 }
 
-/* 终止提示 */
+/* token 使用量显示（消息操作行左侧） */
+.token-usage {
+  font-size: 11px;
+  color: var(--text-muted);
+  opacity: 0.65;
+  white-space: nowrap;
+}
+
+/* 消息操作按钮组 */
 .stopped-indicator {
   margin-top: 4px;
   padding: 0 4px;
@@ -843,18 +866,21 @@
 
 /* 展开面板 */
 .vaultbuddy-sources-panel {
-  border-top: 1px solid var(--background-modifier-border);
-  background-color: var(--background-primary);
+  background-color: var(--background-secondary);
   overflow: hidden;
   transition: max-height 0.25s ease;
 }
 .vaultbuddy-sources-panel.collapsed {
   max-height: 0;
-  border-top: none;
+  border: none;
 }
 .vaultbuddy-sources-panel.expanded {
   max-height: 300px;
   overflow-y: auto;
+  border-top: 1px solid var(--background-modifier-border);
+  border-left: 1px solid var(--background-modifier-border);
+  border-right: 1px solid var(--background-modifier-border);
+  border-bottom: 1px solid var(--background-modifier-border);
 }
 
 /* 面板 header */

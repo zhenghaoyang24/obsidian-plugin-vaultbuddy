@@ -50,6 +50,11 @@ export const DEFAULT_SETTINGS: AIChatSettings = {
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
   content: string;
+  /** token 使用量（仅 assistant 消息携带） */
+  usage?: {
+    promptTokens: number;
+    completionTokens: number;
+  };
 }
 
 /**
