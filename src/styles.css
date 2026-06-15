@@ -527,8 +527,9 @@
   padding: 4px;
 }
 
+/* 模型下拉项 */
 .model-dropdown-item {
-  padding: 8px 12px;
+  padding: 5px 10px;
   border-radius: 6px;
   cursor: pointer;
   font-size: 13px;

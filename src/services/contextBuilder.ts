@@ -685,14 +685,14 @@ export class ContextBuilder {
 
     // 标题：优先 frontmatter title，回退到 basename
     let title = file.basename;
-    const fmTitle = cache?.frontmatter?.title;
+    const fmTitle: unknown = cache?.frontmatter?.title;
     if (typeof fmTitle === "string" && fmTitle.trim().length > 0) {
       title = fmTitle.trim();
     }
 
     // 别名：frontmatter aliases 可以是字符串或字符串数组
     const aliases: string[] = [];
-    const fmAliases = cache?.frontmatter?.aliases;
+    const fmAliases: unknown = cache?.frontmatter?.aliases;
     if (Array.isArray(fmAliases)) {
       for (const alias of fmAliases) {
         if (typeof alias === "string" && alias.trim().length > 0) {
@@ -1153,7 +1153,6 @@ export class ContextBuilder {
    * - 英文：空格分词 + 词干提取 → 同义词扩展
    */
   private extractKeywords(text: string, lang?: TextLang): string[] {
-    const detectedLang = lang ?? this.detectTextLanguage(text);
     const cleaned = text.toLowerCase().trim();
 
     // 分别提取中文和英文部分

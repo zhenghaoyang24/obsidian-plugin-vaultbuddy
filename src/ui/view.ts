@@ -13,7 +13,7 @@ import type AIChatPlugin from "../main";
 import { AIService } from "../services/aiService";
 import { Storage } from "../services/storage";
 import { SourceManager } from "../services/sourceManager";
-import { ContextBuilder, KnowledgeContextResult } from "../services/contextBuilder";
+import { ContextBuilder } from "../services/contextBuilder";
 import { ChatMessage, Conversation, ModelConfig, Skill } from "../core/types";
 import { i18n } from "../core/i18n";
 import { encode } from "gpt-tokenizer";
@@ -98,7 +98,7 @@ export class AIChatView extends ItemView {
       .setIcon("history")
       .setTooltip(i18n("view.history"))
       .onClick(() => {
-        if (!this.isGenerating) this.showHistory();
+        if (!this.isGenerating) void this.showHistory();
       });
 
     // 新对话按钮容器
@@ -109,7 +109,7 @@ export class AIChatView extends ItemView {
       .setIcon("plus")
       .setTooltip(i18n("view.newChat"))
       .onClick(() => {
-        if (!this.isGenerating) this.newConversation();
+        if (!this.isGenerating) void this.newConversation();
       });
 
     // 对话统计信息（在标题下方）
@@ -172,7 +172,7 @@ export class AIChatView extends ItemView {
       if (this.isGenerating) {
         this.stopGeneration();
       } else {
-        this.sendMessage();
+        void this.sendMessage();
       }
     });
 
@@ -189,7 +189,7 @@ export class AIChatView extends ItemView {
         if (this.isGenerating) {
           this.stopGeneration();
         } else {
-          this.sendMessage();
+          void this.sendMessage();
         }
       }
     });
@@ -265,7 +265,7 @@ export class AIChatView extends ItemView {
       position: "fixed",
       left: rect.left + "px",
       bottom: window.innerHeight - rect.top + 4 + "px",
-      width: Math.max(rect.width, 160) + "px",
+      width: Math.max(rect.width, 140) + "px",
     });
 
     activeDocument.body.appendChild(dropdown);
@@ -600,7 +600,7 @@ Detect the language of the user's most recent message and respond EXCLUSIVELY in
 
       anchor.addEventListener("click", (e) => {
         e.preventDefault();
-        this.app.workspace.openLinkText(href, "", false);
+        void this.app.workspace.openLinkText(href, "", false);
       });
     });
   }
@@ -881,7 +881,7 @@ Detect the language of the user's most recent message and respond EXCLUSIVELY in
       // 点击跳转到笔记
       itemEl.addEventListener("click", (e) => {
         e.stopPropagation();
-        this.app.workspace.openLinkText(path.replace(/\.md$/, ""), "", false);
+        void this.app.workspace.openLinkText(path.replace(/\.md$/, ""), "", false);
         // 跳转后收起面板
         this.isSourcesPanelOpen = false;
         this.sourcesPanelEl.removeClass("expanded");

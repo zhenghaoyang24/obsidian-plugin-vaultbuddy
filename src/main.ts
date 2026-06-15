@@ -1,7 +1,7 @@
-import { Platform, Plugin, WorkspaceLeaf } from "obsidian";
+import { Plugin, WorkspaceLeaf } from "obsidian";
 import { AIChatSettingTab } from "./ui/settings";
 import { AIChatView, VIEW_TYPE_AI_CHAT } from "./ui/view";
-import { AIChatSettings, ModelConfig, DEFAULT_SETTINGS } from "./core/types";
+import { AIChatSettings, DEFAULT_SETTINGS } from "./core/types";
 import { setLanguage, detectLanguage, i18n } from "./core/i18n";
 import { ApiKeyStorage } from "./services/apiKeyStorage";
 
@@ -62,7 +62,7 @@ export default class AIChatPlugin extends Plugin {
     }
 
     if (leaf) {
-      workspace.revealLeaf(leaf);
+      void workspace.revealLeaf(leaf);
     }
   }
 

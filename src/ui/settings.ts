@@ -76,7 +76,7 @@ export class AIChatSettingTab extends PluginSettingTab {
             const num = parseInt(value);
             if (!isNaN(num) && num > 0) {
               this.plugin.settings.maxResponseTokens = num;
-              this.plugin.saveSettings();
+              void this.plugin.saveSettings();
             }
           });
       });
@@ -92,7 +92,7 @@ export class AIChatSettingTab extends PluginSettingTab {
           .setDynamicTooltip()
           .onChange((value) => {
             this.plugin.settings.temperature = value;
-            this.plugin.saveSettings();
+            void this.plugin.saveSettings();
           });
       });
 
@@ -103,7 +103,7 @@ export class AIChatSettingTab extends PluginSettingTab {
       .addToggle((toggle) => {
         toggle.setValue(this.plugin.settings.resumeLastConversation).onChange((value) => {
           this.plugin.settings.resumeLastConversation = value;
-          this.plugin.saveSettings();
+          void this.plugin.saveSettings();
         });
       });
 
@@ -117,7 +117,7 @@ export class AIChatSettingTab extends PluginSettingTab {
           .setPlaceholder(i18n("settings.customRulesPlaceholder"))
           .onChange((value) => {
             this.plugin.settings.customRules = value;
-            this.plugin.saveSettings();
+            void this.plugin.saveSettings();
           });
         text.inputEl.rows = 4;
         text.inputEl.cols = 40;
@@ -145,7 +145,7 @@ export class AIChatSettingTab extends PluginSettingTab {
         }
         dropdown.onChange((value) => {
           this.plugin.settings.defaultModelId = value;
-          this.plugin.saveSettings();
+          void this.plugin.saveSettings();
         });
       })
       .addButton((btn) =>
@@ -176,7 +176,7 @@ export class AIChatSettingTab extends PluginSettingTab {
     const sortedModels = [...this.plugin.settings.models].reverse();
     sortedModels.forEach((model) => {
       const originalIndex = this.plugin.settings.models.indexOf(model);
-      this.drawModelCard(containerEl, model, originalIndex);
+      void this.drawModelCard(containerEl, model, originalIndex);
     });
 
     // 空状态提示
@@ -213,7 +213,7 @@ export class AIChatSettingTab extends PluginSettingTab {
       cls: "model-card-btn model-card-btn-save",
     });
     saveBtn.addEventListener("click", () => {
-      this.saveNewModel();
+      void this.saveNewModel();
     });
 
     const cardBody = card.createDiv("model-card-body");
@@ -303,7 +303,7 @@ export class AIChatSettingTab extends PluginSettingTab {
 
     await this.plugin.saveApiKey(newModel.id, m.apiKey.trim());
     this.plugin.settings.models.unshift(newModel);
-    this.plugin.saveSettings();
+    void this.plugin.saveSettings();
     this.pendingModel = null;
     new Notice(i18n("settings.modelAdded"));
     this.display();
@@ -442,7 +442,7 @@ export class AIChatSettingTab extends PluginSettingTab {
   }
 
   private toggleEditMode(card: HTMLElement, model: ModelConfig, index: number): void {
-    const inputs = Array.from(card.querySelectorAll(".model-card-input")) as HTMLInputElement[];
+    const inputs = Array.from(card.querySelectorAll<HTMLInputElement>(".model-card-input"));
     const editBtn = card.querySelector(".model-card-btn:first-child") as HTMLButtonElement;
     const isDisabled = inputs[0]?.disabled;
 
@@ -481,8 +481,8 @@ export class AIChatSettingTab extends PluginSettingTab {
     model.baseUrl = baseUrl;
     model.modelId = modelId;
     model.contextLength = contextLength;
-    this.plugin.saveApiKey(model.id, apiKey);
-    this.plugin.saveSettings();
+    void this.plugin.saveApiKey(model.id, apiKey);
+    void this.plugin.saveSettings();
 
     this.setCardInputsDisabled(card, true);
     if (editBtn) {
@@ -515,7 +515,7 @@ export class AIChatSettingTab extends PluginSettingTab {
     confirmBtn.addEventListener("click", () => {
       void this.plugin.deleteApiKey(model.id).then(() => {
         this.plugin.settings.models.splice(index, 1);
-        this.plugin.saveSettings();
+        void this.plugin.saveSettings();
         modal.close();
         this.display();
       });
@@ -525,14 +525,14 @@ export class AIChatSettingTab extends PluginSettingTab {
   }
 
   private setCardInputsDisabled(card: HTMLElement, disabled: boolean): void {
-    const inputs = card.querySelectorAll(".model-card-input") as NodeListOf<HTMLInputElement>;
+    const inputs = card.querySelectorAll<HTMLInputElement>(".model-card-input");
     inputs.forEach((inp) => {
       inp.disabled = disabled;
     });
 
-    const toggles = card.querySelectorAll(
+    const toggles = card.querySelectorAll<HTMLButtonElement>(
       ".model-card-password-toggle",
-    ) as NodeListOf<HTMLButtonElement>;
+    );
     toggles.forEach((btn) => {
       btn.toggleClass("model-card-toggle-hidden", disabled);
     });
@@ -555,7 +555,7 @@ export class AIChatSettingTab extends PluginSettingTab {
           .onClick(() => {
             const modal = new SkillEditModal(this.app, null, (skill) => {
               this.plugin.settings.skills.unshift(skill);
-              this.plugin.saveSettings();
+              void this.plugin.saveSettings();
               new Notice(i18n("settings.skillAdded"));
               this.display();
             });
@@ -599,7 +599,7 @@ export class AIChatSettingTab extends PluginSettingTab {
     editBtn.addEventListener("click", () => {
       const modal = new SkillEditModal(this.app, skill, (updated) => {
         Object.assign(skill, updated);
-        this.plugin.saveSettings();
+        void this.plugin.saveSettings();
         new Notice(i18n("settings.skillUpdated"));
         this.display();
       });
@@ -622,9 +622,10 @@ export class AIChatSettingTab extends PluginSettingTab {
     const instrRow = cardBody.createDiv("skill-card-row");
     instrRow.createDiv("skill-card-label").textContent = i18n("settings.skillInstruction");
     const instrValue = instrRow.createDiv("skill-card-value skill-card-instr");
-    instrValue.textContent = skill.instruction.length > 120
-      ? skill.instruction.substring(0, 120) + "..."
-      : skill.instruction || "-";
+    instrValue.textContent =
+      skill.instruction.length > 120
+        ? skill.instruction.substring(0, 120) + "..."
+        : skill.instruction || "-";
   }
 
   private confirmDeleteSkill(skill: Skill, index: number): void {
@@ -649,7 +650,7 @@ export class AIChatSettingTab extends PluginSettingTab {
     });
     confirmBtn.addEventListener("click", () => {
       this.plugin.settings.skills.splice(index, 1);
-      this.plugin.saveSettings();
+      void this.plugin.saveSettings();
       modal.close();
       this.display();
     });
@@ -664,11 +665,7 @@ class SkillEditModal extends Modal {
   private skill: Skill | null;
   private onSave: (skill: Skill) => void;
 
-  constructor(
-    app: App,
-    existing: Skill | null,
-    onSave: (skill: Skill) => void,
-  ) {
+  constructor(app: App, existing: Skill | null, onSave: (skill: Skill) => void) {
     super(app);
     this.skill = existing;
     this.onSave = onSave;
@@ -679,9 +676,7 @@ class SkillEditModal extends Modal {
     contentEl.addClass("skill-edit-modal");
 
     const isEdit = this.skill !== null;
-    this.titleEl.setText(
-      isEdit ? i18n("settings.skillEditTitle") : i18n("settings.skillAddTitle"),
-    );
+    this.titleEl.setText(isEdit ? i18n("settings.skillEditTitle") : i18n("settings.skillAddTitle"));
 
     // Name
     const nameRow = contentEl.createDiv("skill-modal-row");
@@ -715,7 +710,7 @@ class SkillEditModal extends Modal {
 
     // 按钮行
     const btnRow = contentEl.createDiv("modal-btn-row");
-    btnRow.style.marginTop = "12px";
+    btnRow.setCssStyles({ marginTop: "12px" });
 
     const cancelBtn = btnRow.createEl("button", {
       text: i18n("settings.cancel"),
