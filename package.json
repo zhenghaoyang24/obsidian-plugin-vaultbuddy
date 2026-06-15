@@ -1,6 +1,6 @@
 {
   "name": "vaultbuddy",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "AI-powered chat assistant that stays in the sidebar. Supports streaming responses, chats with your entire vault as context, and provides answers grounded in your notes. Compatible with OpenAI-style APIs (DeepSeek, OpenAI, etc.).",
   "main": "main.js",
   "scripts": {
