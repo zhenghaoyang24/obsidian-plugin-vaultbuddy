@@ -14,10 +14,17 @@ import { AIService } from "../services/aiService";
 import { Storage } from "../services/storage";
 import { SourceManager } from "../services/sourceManager";
 import { ContextBuilder } from "../services/contextBuilder";
-import { ChatMessage, Conversation, ModelConfig, Skill } from "../core/types";
+import { ChatMessage, Conversation, ModelConfig, Skill, EditBlockState } from "../core/types";
 import { i18n } from "../core/i18n";
 import { encode } from "gpt-tokenizer";
 import { matchSkills } from "../services/skillMatcher";
+import {
+  parseEditBlocks,
+  parseEditOperations,
+  buildChangeGroups,
+  applyOperations,
+} from "../services/diffEngine";
+import { renderDiffWidget } from "./diffWidget";
 
 export const VIEW_TYPE_AI_CHAT = "vaultbuddy-view";
 
@@ -310,6 +317,9 @@ export class AIChatView extends ItemView {
     const content = this.inputEl.value.trim();
     if (!content || this.isGenerating) return;
 
+    // 自动拒绝上一条消息中的 pending 编辑块
+    await this.autoRejectPendingEdits();
+
     const model = this.getSelectedModel();
     if (!model) {
       new Notice(i18n("notice.noModel"));
@@ -351,6 +361,8 @@ export class AIChatView extends ItemView {
     let fullContent = "";
     let promptTokens = 0;
     let activatedSkillName = "";
+    let collectedEditStates: EditBlockState[] | undefined;
+    let assistantMessageToSave: ChatMessage | undefined;
     const contentEl = messageEl.querySelector(".message-content") as HTMLElement;
     const statusEl = contentEl.querySelector(".thinking-status") as HTMLElement;
 
@@ -415,6 +427,58 @@ export class AIChatView extends ItemView {
       if (activatedSkills.length > 0) {
         activatedSkillName = activatedSkills.map((s) => s.name).join(" + ");
       }
+
+      // 检测 edit 块并渲染 Diff 组件
+      const editBlocks = parseEditBlocks(fullContent);
+      if (editBlocks.length > 0) {
+        collectedEditStates = [];
+        contentEl.empty();
+        // 按顺序渲染：edit 块前的文字 → diff 组件 → edit 块后的文字
+        let remaining = fullContent;
+        const editRegex = /==\[DIFF_START\]==\s*\n[\s\S]*?\n---\n[\s\S]*?\n==\[DIFF_END\]==/;
+        for (const block of editBlocks) {
+          const match = remaining.match(editRegex);
+          if (!match) break;
+          const before = remaining.substring(0, match.index);
+          if (before.trim()) {
+            await MarkdownRenderer.render(this.app, before, contentEl, "", this);
+            this.addNoteLinkHandlers(contentEl);
+          }
+          // 读取原文件
+          const file = this.app.vault.getAbstractFileByPath(block.path);
+          const originalContent = file instanceof TFile ? await this.app.vault.read(file) : "";
+          // 解析编辑操作并构建 ChangeGroup
+          const ops = parseEditOperations(block.body);
+          const { groups, errors } = buildChangeGroups(ops, originalContent);
+          // 计算完整的新内容（用于应用）
+          const newContent = applyOperations(originalContent, ops);
+          const editState: EditBlockState = {
+            path: block.path,
+            newContent,
+            originalContent,
+            state: "pending",
+          };
+          collectedEditStates.push(editState);
+          renderDiffWidget({
+            container: contentEl,
+            filePath: block.path,
+            groups,
+            errors,
+            state: "pending",
+            newContent,
+            app: this.app,
+            onStateChange: (newState) => {
+              editState.state = newState;
+              void this.storage.addMessage(this.currentConversation!.id, assistantMessageToSave!);
+            },
+          });
+          remaining = remaining.substring((match.index ?? 0) + match[0].length);
+        }
+        if (remaining.trim()) {
+          await MarkdownRenderer.render(this.app, remaining, contentEl, "", this);
+          this.addNoteLinkHandlers(contentEl);
+        }
+      }
     } catch (error: unknown) {
       if (error instanceof Error && error.name === "AbortError") {
         // 用户主动终止：移除思考动画，添加终止提示
@@ -438,7 +502,9 @@ export class AIChatView extends ItemView {
         content: fullContent,
         skillName: activatedSkillName || undefined,
         usage: { promptTokens, completionTokens },
+        editStates: collectedEditStates,
       };
+      assistantMessageToSave = assistantMessage;
       await this.storage.addMessage(this.currentConversation.id, assistantMessage);
       this.currentConversation.messages.push(assistantMessage);
       this.currentConversation.updatedAt = Date.now();
@@ -523,7 +589,55 @@ Detect the language of the user's most recent message and respond EXCLUSIVELY in
 - For multi-part questions, structure your answer with clear sections
 - If reviewing or critiquing content, be specific: quote the relevant passage, explain the issue, and suggest a fix
 - When listing multiple items, prefer bullet points or numbered lists for readability
-- Use code blocks with language tags for any code snippets`;
+- Use code blocks with language tags for any code snippets
+
+## Note Editing
+You can suggest edits to the user's notes. Follow these rules precisely:
+
+### When the user clearly wants to modify a note (strong intent):
+Examples: "help me polish this note", "rewrite paragraph 3", "translate this note to English", "帮我润色当前笔记"
+1. Briefly describe what changes you will make (1-2 sentences)
+2. Output an edit block with the specific changes (see format below)
+3. The \`path\` MUST be the exact vault-relative file path
+4. If the user says "current note" or "this note", use the current active file path from the context
+5. If you cannot determine WHICH file to edit, you MUST ask the user — never guess
+
+### When the user is just asking for optimization advice (weak intent):
+Examples: "how can I improve my note?", "what's wrong with this article?", "我的笔记还可以怎么优化"
+1. Answer the question normally with analysis and suggestions
+2. End with: "If you'd like, I can apply these changes for you."
+3. Do NOT output an edit block yet
+4. Only output an edit block after the user explicitly confirms
+
+### Edit block format:
+Use this EXACT format (the markers must be on their own lines):
+\`\`\`
+==[DIFF_START]==
+{"path":"relative/path/to/note.md"}
+---
+{"startLine":3,"endLine":5,"old":"original line 3\\noriginal line 4\\noriginal line 5","new":"new line 3\\nnew line 4"}
+{"startLine":10,"endLine":10,"old":"original line 10","new":"new line 10"}
+==[DIFF_END]==
+\`\`\`
+
+Each line between the --- marker is a JSON object representing one edit operation:
+- \`startLine\` / \`endLine\`: line range in the ORIGINAL file (1-based, inclusive)
+- \`old\`: the original content of that range (lines joined by \\n)
+- \`new\`: the replacement content (lines joined by \\n)
+
+Operation types:
+- **Replace**: both old and new have content
+- **Insert** (after startLine): old is empty string "", new has the inserted content
+- **Delete**: old has the content, new is empty string ""
+
+The file content in the context is shown with line numbers like [1], [2], etc. Use these exact line numbers in your edit operations.
+
+### Safety rules:
+- Only output edit blocks when the user has explicitly agreed to modify
+- The path must be accurate — never fabricate paths
+- The \`old\` content must EXACTLY match the original file content at those lines (including spaces, punctuation)
+- If the file path from context doesn't match what the user means, ask for clarification
+- Sort edit operations by line number (ascending) for clarity`;
 
     let systemPrompt = this.plugin.settings.customRules
       ? `${basePrompt}\n\n## Custom Rules\n${this.plugin.settings.customRules}`
@@ -564,6 +678,19 @@ Detect the language of the user's most recent message and respond EXCLUSIVELY in
         messages.push({
           role: "system",
           content: `Here is your vault content as context. Current date: ${todayStr}. The current note (if you had one open) is included in full, alongside relevant excerpts from other notes:\n\n${contextResult.context}`,
+        });
+      }
+
+      // 如果有当前活动文件，注入带行号的版本（供编辑参考）
+      if (currentFile) {
+        const fileContent = await this.app.vault.read(currentFile);
+        const numberedLines = fileContent
+          .split("\n")
+          .map((line, idx) => `[${idx + 1}] ${line}`)
+          .join("\n");
+        messages.push({
+          role: "system",
+          content: `The current note "${currentFile.path}" with line numbers (for edit reference):\n\n${numberedLines}`,
         });
       }
 
@@ -669,8 +796,13 @@ Detect the language of the user's most recent message and respond EXCLUSIVELY in
     const contentEl = bubble.createDiv("message-content");
 
     if (message.role === "assistant") {
-      await MarkdownRenderer.render(this.app, message.content, contentEl, "", this);
-      this.addNoteLinkHandlers(contentEl);
+      if (message.editStates && message.editStates.length > 0) {
+        // 有 edit 块的消息：分段渲染 markdown + diff 组件
+        await this.renderMessageWithEditBlocks(message, contentEl);
+      } else {
+        await MarkdownRenderer.render(this.app, message.content, contentEl, "", this);
+        this.addNoteLinkHandlers(contentEl);
+      }
     } else {
       contentEl.textContent = message.content;
     }
@@ -701,6 +833,70 @@ Detect the language of the user's most recent message and respond EXCLUSIVELY in
     this.messageArea.scrollTop = this.messageArea.scrollHeight;
   }
 
+  /**
+   * 渲染包含 edit 块的消息（用于流式完成后的首次渲染和历史记录加载）
+   * 将 edit 块替换为 Diff 组件，其余部分照常 Markdown 渲染
+   */
+  private async renderMessageWithEditBlocks(
+    message: ChatMessage,
+    contentEl: HTMLElement,
+  ): Promise<void> {
+    const editBlocks = parseEditBlocks(message.content);
+    const editStates = message.editStates || [];
+    const editRegex = /==\[DIFF_START\]==\s*\n[\s\S]*?\n---\n[\s\S]*?\n==\[DIFF_END\]==/;
+
+    let remaining = message.content;
+    let editIdx = 0;
+
+    for (const block of editBlocks) {
+      const match = remaining.match(editRegex);
+      if (!match) break;
+
+      // 渲染 edit 块前的文字
+      const before = remaining.substring(0, match.index);
+      if (before.trim()) {
+        await MarkdownRenderer.render(this.app, before, contentEl, "", this);
+        this.addNoteLinkHandlers(contentEl);
+      }
+
+      // 获取对应的 editState
+      const editState = editStates[editIdx];
+      const state = editState?.state ?? "rejected";
+      const newContent = editState?.newContent ?? "";
+      const filePath = editState?.path ?? block.path;
+      const originalContent = editState?.originalContent ?? "";
+
+      // 用保存的原始内容和新内容计算 diff
+      const ops = parseEditOperations(block.body);
+      const { groups } = buildChangeGroups(ops, originalContent || "");
+
+      renderDiffWidget({
+        container: contentEl,
+        filePath,
+        groups,
+        state,
+        newContent,
+        app: this.app,
+        interactive: state === "pending",
+        onStateChange: (newState) => {
+          if (editState) {
+            editState.state = newState;
+            void this.storage.saveConversation(this.currentConversation!);
+          }
+        },
+      });
+
+      remaining = remaining.substring((match.index ?? 0) + match[0].length);
+      editIdx++;
+    }
+
+    // 渲染剩余文字
+    if (remaining.trim()) {
+      await MarkdownRenderer.render(this.app, remaining, contentEl, "", this);
+      this.addNoteLinkHandlers(contentEl);
+    }
+  }
+
   private addActionBtn(
     container: HTMLElement,
     label: string,
@@ -722,6 +918,31 @@ Detect the language of the user's most recent message and respond EXCLUSIVELY in
         });
       }
     });
+  }
+
+  // ==================== 编辑块管理 ====================
+
+  /**
+   * 自动拒绝当前对话中所有 pending 状态的编辑块
+   * 在切换对话、开启新对话、发送新消息时调用
+   */
+  private async autoRejectPendingEdits(): Promise<void> {
+    if (!this.currentConversation) return;
+    const msgs = this.currentConversation.messages;
+    let changed = false;
+    for (const msg of msgs) {
+      if (msg.role !== "assistant" || !msg.editStates) continue;
+      for (const edit of msg.editStates) {
+        if (edit.state === "pending") {
+          edit.state = "rejected";
+          changed = true;
+        }
+      }
+    }
+    if (changed) {
+      // 更新最后一条消息的存储
+      await this.storage.saveConversation(this.currentConversation);
+    }
   }
 
   // ==================== 历史对话 ====================
@@ -756,6 +977,7 @@ Detect the language of the user's most recent message and respond EXCLUSIVELY in
   }
 
   private async loadConversation(conversation: Conversation): Promise<void> {
+    await this.autoRejectPendingEdits();
     this.currentConversation = conversation;
     this.messageArea.empty();
     // 切换对话时隐藏源笔记
@@ -770,6 +992,7 @@ Detect the language of the user's most recent message and respond EXCLUSIVELY in
 
   private async newConversation(): Promise<void> {
     if (this.isGenerating) return;
+    await this.autoRejectPendingEdits();
     this.currentConversation = null;
     this.messageArea.empty();
     // 新对话清空源笔记和统计

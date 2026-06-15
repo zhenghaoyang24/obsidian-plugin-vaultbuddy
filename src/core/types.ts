@@ -57,6 +57,16 @@ export const DEFAULT_SETTINGS: AIChatSettings = {
 };
 
 /**
+ * 编辑块状态
+ */
+export interface EditBlockState {
+  path: string; // 文件路径
+  newContent: string; // AI 提议的完整新内容
+  originalContent: string; // 编辑时的原始文件内容
+  state: "pending" | "accepted" | "rejected";
+}
+
+/**
  * 聊天消息
  */
 export interface ChatMessage {
@@ -69,6 +79,8 @@ export interface ChatMessage {
     promptTokens: number;
     completionTokens: number;
   };
+  /** 编辑块状态列表 */
+  editStates?: EditBlockState[];
 }
 
 /**

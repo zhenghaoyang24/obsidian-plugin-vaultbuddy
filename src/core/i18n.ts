@@ -122,6 +122,16 @@ const strings: Record<Lang, Record<string, string>> = {
     "notice.noApiKey": "请先在设置中配置 API Key",
     "notice.apiFail": "AI 调用失败:",
     "notice.connectionTestNeedsConfig": "请先填写完整的模型信息再测试",
+
+    // Diff
+    "diff.accept": "应用",
+    "diff.reject": "拒绝",
+    "diff.accepted": "已应用",
+    "diff.rejected": "已拒绝",
+    "diff.autoRejected": "已拒绝（自动）",
+    "diff.applySuccess": "✅ 笔记已更新",
+    "diff.fileNotFound": "⚠️ 文件已不存在，无法应用",
+    "diff.noChanges": "无变更",
   },
 
   en: {
@@ -237,6 +247,16 @@ const strings: Record<Lang, Record<string, string>> = {
     "notice.noApiKey": "Please configure API Key in settings first",
     "notice.apiFail": "AI call failed:",
     "notice.connectionTestNeedsConfig": "Please fill all model fields before testing",
+
+    // Diff
+    "diff.accept": "Accept",
+    "diff.reject": "Reject",
+    "diff.accepted": "Applied",
+    "diff.rejected": "Rejected",
+    "diff.autoRejected": "Rejected (auto)",
+    "diff.applySuccess": "✅ Note updated",
+    "diff.fileNotFound": "⚠️ File no longer exists, cannot apply",
+    "diff.noChanges": "No changes",
   },
 };
 
