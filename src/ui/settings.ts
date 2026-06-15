@@ -633,7 +633,7 @@ export class AIChatSettingTab extends PluginSettingTab {
 
     const content = modal.contentEl;
     content.createEl("p", {
-      text: `${i18n("settings.deleteMsg")} "${skill.name || i18n("settings.unnamedSkill")}"?`,
+      text: `${i18n("settings.skillDeleteMsg")} "${skill.name || i18n("settings.unnamedSkill")}"?`,
     });
     content.createEl("p", { text: i18n("settings.irreversible"), cls: "modal-warning" });
 

@@ -47,8 +47,8 @@ const strings: Record<Lang, Record<string, string>> = {
     "sources.noMatch": "没有匹配的笔记",
 
     // Settings
-    "settings.tabGeneral": "通用设置",
-    "settings.tabModels": "模型配置",
+    "settings.tabGeneral": "通用",
+    "settings.tabModels": "模型",
     "settings.temperature": "回复温度 (Temperature)",
     "settings.temperatureDesc":
       "控制 AI 回复的创造性和随机性。较低的值（0.1-0.3）更精确，较高的值（0.7-1.0）更有创意。默认 0.7。",
@@ -106,7 +106,7 @@ const strings: Record<Lang, Record<string, string>> = {
     "settings.noSkills": "暂无技能，点击上方按钮添加",
     "settings.unnamedSkill": "未命名技能",
     "settings.skillName": "技能名称",
-    "settings.skillNamePlaceholder": "例如：代码审查",
+    "settings.skillNamePlaceholder": "例如：文章总结",
     "settings.skillDescription": "技能描述",
     "settings.skillDescriptionPlaceholder": "简要描述该技能的用途，用于 AI 识别匹配",
     "settings.skillInstruction": "具体指令",
@@ -115,6 +115,7 @@ const strings: Record<Lang, Record<string, string>> = {
     "settings.skillEditTitle": "编辑技能",
     "settings.skillAdded": "✅ 技能已添加",
     "settings.skillUpdated": "✅ 技能已更新",
+    "settings.skillDeleteMsg": "确定要删除技能",
 
     // Notices
     "notice.noModel": "请先在设置中配置模型",
@@ -219,15 +220,17 @@ const strings: Record<Lang, Record<string, string>> = {
     "settings.noSkills": "No skills yet. Click the button above to add one.",
     "settings.unnamedSkill": "Unnamed Skill",
     "settings.skillName": "Name",
-    "settings.skillNamePlaceholder": "e.g. Code Review",
+    "settings.skillNamePlaceholder": "e.g. Article Summarization",
     "settings.skillDescription": "Description",
-    "settings.skillDescriptionPlaceholder": "Briefly describe what this skill does (AI uses this for matching)",
+    "settings.skillDescriptionPlaceholder":
+      "Briefly describe what this skill does (AI uses this for matching)",
     "settings.skillInstruction": "Instruction",
     "settings.skillInstructionPlaceholder": "Tell the AI what to do...",
     "settings.skillAddTitle": "Add Skill",
     "settings.skillEditTitle": "Edit Skill",
     "settings.skillAdded": "✅ Skill added",
     "settings.skillUpdated": "✅ Skill updated",
+    "settings.skillDeleteMsg": "Are you sure you want to delete skill",
 
     // Notices
     "notice.noModel": "Please configure a model in settings first",
