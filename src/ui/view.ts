@@ -403,6 +403,19 @@ export class AIChatView extends ItemView {
       // 构建完成，更新状态为"正在思考"
       statusEl.textContent = i18n("view.thinkingLabel");
 
+      // --- 流式渲染（支持实时 diff） ---
+      const DIFF_START_RE = /(?:<tool_call>\s*)?%%\s*DIFF_START\s+(\{.*?\})\s*%%/;
+      const DIFF_END_RE = /%%\s*DIFF_END\s*%%(?:\s*<\/tool_call>)?/;
+
+      // 流式 diff 状态
+      let sdMode: "normal" | "streaming" | "done" = "normal";
+      let sdPath = "";
+      let sdBody = "";
+      let sdOriginalContent = "";
+      let sdContainer: HTMLElement | null = null;
+      let sdEditState: EditBlockState | null = null;
+      let sdPostContent = ""; // diff 结束后 AI 继续输出的内容
+
       for await (const chunk of AIService.chatStream(
         fullModel,
         messages,
@@ -411,73 +424,199 @@ export class AIChatView extends ItemView {
         this.plugin.settings.temperature,
       )) {
         fullContent += chunk;
-        // 移除状态提示，开始显示内容
+
+        // 移除状态提示
         if (statusEl) {
           statusEl.remove();
         }
-        contentEl.empty();
-        await MarkdownRenderer.render(this.app, fullContent, contentEl, "", this);
-        this.addNoteLinkHandlers(contentEl);
-        this.messageArea.scrollTop = this.messageArea.scrollHeight;
-      }
 
-      messageEl.removeClass("thinking");
+        if (sdMode === "streaming") {
+          // ---- 正在流式 diff：累积操作行，检测结束标记 ----
+          const endMatch = sdBody.match(DIFF_END_RE);
+          if (endMatch) {
+            // DIFF_END 出现：截取操作部分，完成 diff
+            const opsText = sdBody.substring(0, endMatch.index);
+            sdBody = opsText;
 
-      // 记录激活的 Skill 名称（用于在 actions bar 显示）
-      if (activatedSkills.length > 0) {
-        activatedSkillName = activatedSkills.map((s) => s.name).join(" + ");
-      }
+            if (!collectedEditStates) collectedEditStates = [];
+            const ops = parseEditOperations(sdBody);
+            const { groups, errors } = buildChangeGroups(ops, sdOriginalContent);
+            const newContent = applyOperations(sdOriginalContent, ops);
+            sdEditState!.newContent = newContent;
+            collectedEditStates.push(sdEditState!);
 
-      // 检测 edit 块并渲染 Diff 组件
-      const editBlocks = parseEditBlocks(fullContent);
-      if (editBlocks.length > 0) {
-        collectedEditStates = [];
-        contentEl.empty();
-        // 按顺序渲染：edit 块前的文字 → diff 组件 → edit 块后的文字
-        let remaining = fullContent;
-        const editRegex = /==\[DIFF_START\]==\s*\n[\s\S]*?\n---\n[\s\S]*?\n==\[DIFF_END\]==/;
-        for (const block of editBlocks) {
-          const match = remaining.match(editRegex);
-          if (!match) break;
-          const before = remaining.substring(0, match.index);
-          if (before.trim()) {
-            await MarkdownRenderer.render(this.app, before, contentEl, "", this);
-            this.addNoteLinkHandlers(contentEl);
+            if (sdContainer) {
+              sdContainer.empty();
+              renderDiffWidget({
+                container: sdContainer,
+                filePath: sdPath,
+                groups,
+                errors,
+                state: "pending",
+                newContent,
+                newLines: newContent.split("\n"),
+                app: this.app,
+                onStateChange: (newState) => {
+                  sdEditState!.state = newState;
+                  void this.storage.addMessage(this.currentConversation!.id, assistantMessageToSave!);
+                },
+                onFeedback: (fp, outcome) => this.addDiffFeedback(fp, outcome),
+              });
+            }
+            sdMode = "done";
+          } else {
+            // DIFF_END 未出现：累积新 chunk，实时更新 diff
+            sdBody += chunk;
+            if (sdContainer) {
+              const ops = parseEditOperations(sdBody);
+              const { groups, errors } = buildChangeGroups(ops, sdOriginalContent);
+              const newContent = applyOperations(sdOriginalContent, ops);
+              sdEditState!.newContent = newContent;
+              sdContainer.empty();
+              renderDiffWidget({
+                container: sdContainer,
+                filePath: sdPath,
+                groups,
+                errors,
+                state: "pending",
+                newContent,
+                newLines: newContent.split("\n"),
+                app: this.app,
+                interactive: false, // 流式中不显示按钮
+              });
+            }
+            this.messageArea.scrollTop = this.messageArea.scrollHeight;
           }
-          // 读取原文件
-          const file = this.app.vault.getAbstractFileByPath(block.path);
-          const originalContent = file instanceof TFile ? await this.app.vault.read(file) : "";
-          // 解析编辑操作并构建 ChangeGroup
-          const ops = parseEditOperations(block.body);
-          const { groups, errors } = buildChangeGroups(ops, originalContent);
-          // 计算完整的新内容（用于应用）
-          const newContent = applyOperations(originalContent, ops);
-          const editState: EditBlockState = {
-            path: block.path,
-            newContent,
-            originalContent,
-            state: "pending",
-          };
-          collectedEditStates.push(editState);
-          renderDiffWidget({
-            container: contentEl,
-            filePath: block.path,
-            groups,
-            errors,
-            state: "pending",
-            newContent,
-            app: this.app,
-            onStateChange: (newState) => {
-              editState.state = newState;
-              void this.storage.addMessage(this.currentConversation!.id, assistantMessageToSave!);
-            },
-          });
-          remaining = remaining.substring((match.index ?? 0) + match[0].length);
+        } else if (sdMode === "done") {
+          // diff 已完成，累积后续文字
+          sdPostContent += chunk;
+        } else {
+          // ---- normal 模式：渲染 markdown，检测 DIFF_START ----
+          const startMatch = fullContent.match(DIFF_START_RE);
+          if (startMatch) {
+            // DIFF_START 出现：渲染前面的文字，创建 diff 容器
+            collectedEditStates = [];
+            const beforeText = fullContent.substring(0, startMatch.index)
+              .replace(/<tool_call>\s*/g, "");
+            contentEl.empty();
+            if (beforeText.trim()) {
+              await MarkdownRenderer.render(this.app, beforeText, contentEl, "", this);
+              this.addNoteLinkHandlers(contentEl);
+            }
+
+            // 解析 JSON meta
+            try {
+              const meta = JSON.parse(startMatch[1]);
+              sdPath = meta.path;
+            } catch {
+              sdPath = "unknown";
+            }
+            const file = this.app.vault.getAbstractFileByPath(sdPath);
+            sdOriginalContent = file instanceof TFile ? await this.app.vault.read(file) : "";
+
+            // 创建 diff 容器
+            sdContainer = contentEl.createDiv("vaultbuddy-streaming-diff");
+            sdEditState = {
+              path: sdPath,
+              newContent: "",
+              originalContent: sdOriginalContent,
+              state: "pending",
+            };
+
+            // 提取 DIFF_START 标记之后的操作行
+            const afterStart = fullContent.substring(startMatch.index! + startMatch[0].length);
+            sdBody = afterStart;
+
+            // 检查是否已经收到 DIFF_END
+            const endMatch = sdBody.match(DIFF_END_RE);
+            if (endMatch) {
+              // 标记完整：直接渲染
+              const opsText = sdBody.substring(0, endMatch.index);
+              sdBody = opsText;
+              const ops = parseEditOperations(sdBody);
+              const { groups, errors } = buildChangeGroups(ops, sdOriginalContent);
+              const newContent = applyOperations(sdOriginalContent, ops);
+              sdEditState.newContent = newContent;
+              collectedEditStates.push(sdEditState);
+              if (sdContainer) {
+                renderDiffWidget({
+                  container: sdContainer,
+                  filePath: sdPath,
+                  groups,
+                  errors,
+                  state: "pending",
+                  newContent,
+                  newLines: newContent.split("\n"),
+                  app: this.app,
+                  onStateChange: (newState) => {
+                    sdEditState!.state = newState;
+                    void this.storage.addMessage(this.currentConversation!.id, assistantMessageToSave!);
+                  },
+                });
+              }
+              sdMode = "done";
+            } else {
+              // 标记不完整：进入流式 diff 模式
+              const ops = parseEditOperations(sdBody);
+              const { groups, errors } = buildChangeGroups(ops, sdOriginalContent);
+              const partialNewContent = applyOperations(sdOriginalContent, ops);
+              if (sdContainer) {
+                renderDiffWidget({
+                  container: sdContainer,
+                  filePath: sdPath,
+                  groups,
+                  errors,
+                  state: "pending",
+                  newContent: partialNewContent,
+                  newLines: partialNewContent.split("\n"),
+                  app: this.app,
+                  interactive: false,
+                });
+              }
+              sdMode = "streaming";
+            }
+            this.messageArea.scrollTop = this.messageArea.scrollHeight;
+          } else {
+            // 无 DIFF_START：正常渲染 markdown
+            contentEl.empty();
+            await MarkdownRenderer.render(this.app, fullContent, contentEl, "", this);
+            this.addNoteLinkHandlers(contentEl);
+            this.messageArea.scrollTop = this.messageArea.scrollHeight;
+          }
         }
-        if (remaining.trim()) {
-          await MarkdownRenderer.render(this.app, remaining, contentEl, "", this);
-          this.addNoteLinkHandlers(contentEl);
-        }
+      }
+
+      // 流式结束：如果 diff 仍在流式中（DIFF_END 未收到），用已有内容完成
+      if (sdMode === "streaming" && sdEditState && sdContainer) {
+        if (!collectedEditStates) collectedEditStates = [];
+        const ops = parseEditOperations(sdBody);
+        const { groups, errors } = buildChangeGroups(ops, sdOriginalContent);
+        const newContent = applyOperations(sdOriginalContent, ops);
+        sdEditState.newContent = newContent;
+        collectedEditStates.push(sdEditState);
+        sdContainer.empty();
+        renderDiffWidget({
+          container: sdContainer,
+          filePath: sdPath,
+          groups,
+          errors,
+          state: "pending",
+          newContent,
+          newLines: newContent.split("\n"),
+          app: this.app,
+          onStateChange: (newState) => {
+            sdEditState!.state = newState;
+            void this.storage.addMessage(this.currentConversation!.id, assistantMessageToSave!);
+          },
+        });
+        sdMode = "done";
+      }
+
+      // 渲染 diff 结束后 AI 继续输出的文字
+      const cleanPostContent = sdPostContent.replace(/<\/?tool_call>/g, "");
+      if (cleanPostContent.trim()) {
+        await MarkdownRenderer.render(this.app, cleanPostContent, contentEl, "", this);
+        this.addNoteLinkHandlers(contentEl);
       }
     } catch (error: unknown) {
       if (error instanceof Error && error.name === "AbortError") {
@@ -592,35 +731,34 @@ Detect the language of the user's most recent message and respond EXCLUSIVELY in
 - Use code blocks with language tags for any code snippets
 
 ## Note Editing
-You can suggest edits to the user's notes. Follow these rules precisely:
+You can suggest edits to the user's notes. The user decides whether to apply your suggestions. Follow these rules precisely:
 
 ### When the user clearly wants to modify a note (strong intent):
 Examples: "help me polish this note", "rewrite paragraph 3", "translate this note to English", "帮我润色当前笔记"
-1. Briefly describe what changes you will make (1-2 sentences)
+1. Briefly describe what changes you will suggest (1-2 sentences)
 2. Output an edit block with the specific changes (see format below)
 3. The \`path\` MUST be the exact vault-relative file path
 4. If the user says "current note" or "this note", use the current active file path from the context
 5. If you cannot determine WHICH file to edit, you MUST ask the user — never guess
+6. Do NOT claim you have already modified the file. You are only providing a suggestion — the user will decide whether to apply it.
 
 ### When the user is just asking for optimization advice (weak intent):
 Examples: "how can I improve my note?", "what's wrong with this article?", "我的笔记还可以怎么优化"
 1. Answer the question normally with analysis and suggestions
-2. End with: "If you'd like, I can apply these changes for you."
+2. End with: "If you'd like, I can provide a suggested edit for you to review."
 3. Do NOT output an edit block yet
 4. Only output an edit block after the user explicitly confirms
 
 ### Edit block format:
-Use this EXACT format (the markers must be on their own lines):
+Use this EXACT format. The start/end markers are Obsidian comments (\%\%) and MUST each be on their own line:
 \`\`\`
-==[DIFF_START]==
-{"path":"relative/path/to/note.md"}
----
+\%\% DIFF_START {"path":"relative/path/to/note.md"} \%\%
 {"startLine":3,"endLine":5,"old":"original line 3\\noriginal line 4\\noriginal line 5","new":"new line 3\\nnew line 4"}
 {"startLine":10,"endLine":10,"old":"original line 10","new":"new line 10"}
-==[DIFF_END]==
+\%\% DIFF_END \%\%
 \`\`\`
 
-Each line between the --- marker is a JSON object representing one edit operation:
+Each line between the start and end markers is a JSON object representing one edit operation:
 - \`startLine\` / \`endLine\`: line range in the ORIGINAL file (1-based, inclusive)
 - \`old\`: the original content of that range (lines joined by \\n)
 - \`new\`: the replacement content (lines joined by \\n)
@@ -637,7 +775,9 @@ The file content in the context is shown with line numbers like [1], [2], etc. U
 - The path must be accurate — never fabricate paths
 - The \`old\` content must EXACTLY match the original file content at those lines (including spaces, punctuation)
 - If the file path from context doesn't match what the user means, ask for clarification
-- Sort edit operations by line number (ascending) for clarity`;
+- Sort edit operations by line number (ascending) for clarity
+- NEVER claim you have applied or modified the file. You are providing a suggestion only — the user will choose to accept or reject it.
+- If you see "[Applied: filename]" in the conversation, the user accepted a previous suggestion. If you see "[Rejected: filename]", the user rejected it. Do not assume a suggestion was applied unless you see the "Applied" confirmation.`;
 
     let systemPrompt = this.plugin.settings.customRules
       ? `${basePrompt}\n\n## Custom Rules\n${this.plugin.settings.customRules}`
@@ -767,6 +907,19 @@ The file content in the context is shown with line numbers like [1], [2], etc. U
     }
   }
 
+  /**
+   * 向对话记录追加 diff 反馈消息，让 AI 在后续对话中知道修改建议的结果
+   */
+  private addDiffFeedback(filePath: string, outcome: "applied" | "rejected"): void {
+    if (!this.currentConversation) return;
+    const tag = outcome === "applied"
+      ? `<span style="color:#4caf50;font-weight:600">[Applied: ${filePath}]</span>`
+      : `<span style="color:#e53935;font-weight:600">[Rejected: ${filePath}]</span>`;
+    const feedbackMsg: ChatMessage = { role: "user", content: tag };
+    void this.storage.addMessage(this.currentConversation.id, feedbackMsg);
+    this.currentConversation.messages.push(feedbackMsg);
+  }
+
   private createStreamingMessage(): HTMLElement {
     const wrapper = this.messageArea.createDiv("message-wrapper");
     const messageEl = wrapper.createDiv("message assistant thinking");
@@ -804,7 +957,12 @@ The file content in the context is shown with line numbers like [1], [2], etc. U
         this.addNoteLinkHandlers(contentEl);
       }
     } else {
-      contentEl.textContent = message.content;
+      // 用户消息：含 HTML 标签时用 innerHtml 渲染（如 diff 反馈），否则用纯文本
+      if (/<[a-z][\s\S]*>/i.test(message.content)) {
+        contentEl.innerHTML = message.content;
+      } else {
+        contentEl.textContent = message.content;
+      }
     }
 
     // 操作按钮和 token 信息（在气泡外面下方）
@@ -843,7 +1001,8 @@ The file content in the context is shown with line numbers like [1], [2], etc. U
   ): Promise<void> {
     const editBlocks = parseEditBlocks(message.content);
     const editStates = message.editStates || [];
-    const editRegex = /==\[DIFF_START\]==\s*\n[\s\S]*?\n---\n[\s\S]*?\n==\[DIFF_END\]==/;
+    const editRegex = /%%\s*DIFF_START\s+\{.*?\}\s*%%\s*\n[\s\S]*?\n\s*%%\s*DIFF_END\s*%%/;
+
 
     let remaining = message.content;
     let editIdx = 0;
@@ -876,6 +1035,7 @@ The file content in the context is shown with line numbers like [1], [2], etc. U
         groups,
         state,
         newContent,
+        newLines: newContent.split("\n"),
         app: this.app,
         interactive: state === "pending",
         onStateChange: (newState) => {
@@ -884,6 +1044,7 @@ The file content in the context is shown with line numbers like [1], [2], etc. U
             void this.storage.saveConversation(this.currentConversation!);
           }
         },
+        onFeedback: (fp, outcome) => this.addDiffFeedback(fp, outcome),
       });
 
       remaining = remaining.substring((match.index ?? 0) + match[0].length);
