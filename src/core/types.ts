@@ -115,11 +115,3 @@ export interface ContextChunk {
   sourcePath: string;
   relevance: number;
 }
-
-/**
- * 文件选择结果
- */
-export interface SelectedItem {
-  type: "file" | "folder";
-  path: string;
-}

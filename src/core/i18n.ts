@@ -270,10 +270,6 @@ export function setLanguage(lang: Lang): void {
   currentLang = lang;
 }
 
-export function getLanguage(): Lang {
-  return currentLang;
-}
-
 /**
  * Detect Obsidian's interface language
  */

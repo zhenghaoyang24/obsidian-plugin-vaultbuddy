@@ -25,11 +25,11 @@ export default class AIChatPlugin extends Plugin {
     // 注册设置页
     this.addSettingTab(new AIChatSettingTab(this.app, this));
 
-    console.log("VaultBuddy loaded");
+    // Plugin loaded
   }
 
   onunload() {
-    console.log("VaultBuddy unloaded");
+    // Plugin unloaded
   }
 
   async loadSettings() {

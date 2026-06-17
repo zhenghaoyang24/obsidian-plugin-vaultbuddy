@@ -352,6 +352,9 @@ export class AIChatView extends ItemView {
     this.currentConversation.messages.push(userMessage);
     this.currentConversation.updatedAt = Date.now();
 
+    // 更新对话统计（用户消息 +1）
+    this.updateConversationStats();
+
     // 进入生成状态
     this.setGeneratingState(true);
 
@@ -368,6 +371,15 @@ export class AIChatView extends ItemView {
 
     // 创建 AbortController
     this.abortController = new AbortController();
+
+    // 最大思考时间（5分钟）
+    const MAX_THINKING_TIME = 5 * 60 * 1000;
+    const thinkingTimeout = window.setTimeout(() => {
+      if (this.isGenerating && this.abortController) {
+        new Notice("Thinking timeout: exceeded 5 minutes. Request cancelled.");
+        this.stopGeneration();
+      }
+    }, MAX_THINKING_TIME);
 
     try {
       // 检查是否需要构建知识库（sourceManager 为空表示需要扫描）
@@ -432,113 +444,22 @@ export class AIChatView extends ItemView {
 
         if (sdMode === "streaming") {
           // ---- 正在流式 diff：累积操作行，检测结束标记 ----
-          const endMatch = sdBody.match(DIFF_END_RE);
-          if (endMatch) {
-            // DIFF_END 出现：截取操作部分，完成 diff
-            const opsText = sdBody.substring(0, endMatch.index);
-            sdBody = opsText;
+          try {
+            const endMatch = sdBody.match(DIFF_END_RE);
+            if (endMatch) {
+              // DIFF_END 出现：截取操作部分，完成 diff
+              const opsText = sdBody.substring(0, endMatch.index);
+              sdBody = opsText;
 
-            if (!collectedEditStates) collectedEditStates = [];
-            const ops = parseEditOperations(sdBody);
-            const { groups, errors } = buildChangeGroups(ops, sdOriginalContent);
-            const newContent = applyOperations(sdOriginalContent, ops);
-            sdEditState!.newContent = newContent;
-            collectedEditStates.push(sdEditState!);
-
-            if (sdContainer) {
-              sdContainer.empty();
-              renderDiffWidget({
-                container: sdContainer,
-                filePath: sdPath,
-                groups,
-                errors,
-                state: "pending",
-                newContent,
-                newLines: newContent.split("\n"),
-                app: this.app,
-                onStateChange: (newState) => {
-                  sdEditState!.state = newState;
-                  void this.storage.addMessage(this.currentConversation!.id, assistantMessageToSave!);
-                },
-                onFeedback: (fp, outcome) => this.addDiffFeedback(fp, outcome),
-              });
-            }
-            sdMode = "done";
-          } else {
-            // DIFF_END 未出现：累积新 chunk，实时更新 diff
-            sdBody += chunk;
-            if (sdContainer) {
+              if (!collectedEditStates) collectedEditStates = [];
               const ops = parseEditOperations(sdBody);
               const { groups, errors } = buildChangeGroups(ops, sdOriginalContent);
               const newContent = applyOperations(sdOriginalContent, ops);
               sdEditState!.newContent = newContent;
-              sdContainer.empty();
-              renderDiffWidget({
-                container: sdContainer,
-                filePath: sdPath,
-                groups,
-                errors,
-                state: "pending",
-                newContent,
-                newLines: newContent.split("\n"),
-                app: this.app,
-                interactive: false, // 流式中不显示按钮
-              });
-            }
-            this.messageArea.scrollTop = this.messageArea.scrollHeight;
-          }
-        } else if (sdMode === "done") {
-          // diff 已完成，累积后续文字
-          sdPostContent += chunk;
-        } else {
-          // ---- normal 模式：渲染 markdown，检测 DIFF_START ----
-          const startMatch = fullContent.match(DIFF_START_RE);
-          if (startMatch) {
-            // DIFF_START 出现：渲染前面的文字，创建 diff 容器
-            collectedEditStates = [];
-            const beforeText = fullContent.substring(0, startMatch.index)
-              .replace(/<tool_call>\s*/g, "");
-            contentEl.empty();
-            if (beforeText.trim()) {
-              await MarkdownRenderer.render(this.app, beforeText, contentEl, "", this);
-              this.addNoteLinkHandlers(contentEl);
-            }
+              collectedEditStates.push(sdEditState!);
 
-            // 解析 JSON meta
-            try {
-              const meta = JSON.parse(startMatch[1]);
-              sdPath = meta.path;
-            } catch {
-              sdPath = "unknown";
-            }
-            const file = this.app.vault.getAbstractFileByPath(sdPath);
-            sdOriginalContent = file instanceof TFile ? await this.app.vault.read(file) : "";
-
-            // 创建 diff 容器
-            sdContainer = contentEl.createDiv("vaultbuddy-streaming-diff");
-            sdEditState = {
-              path: sdPath,
-              newContent: "",
-              originalContent: sdOriginalContent,
-              state: "pending",
-            };
-
-            // 提取 DIFF_START 标记之后的操作行
-            const afterStart = fullContent.substring(startMatch.index! + startMatch[0].length);
-            sdBody = afterStart;
-
-            // 检查是否已经收到 DIFF_END
-            const endMatch = sdBody.match(DIFF_END_RE);
-            if (endMatch) {
-              // 标记完整：直接渲染
-              const opsText = sdBody.substring(0, endMatch.index);
-              sdBody = opsText;
-              const ops = parseEditOperations(sdBody);
-              const { groups, errors } = buildChangeGroups(ops, sdOriginalContent);
-              const newContent = applyOperations(sdOriginalContent, ops);
-              sdEditState.newContent = newContent;
-              collectedEditStates.push(sdEditState);
               if (sdContainer) {
+                sdContainer.empty();
                 renderDiffWidget({
                   container: sdContainer,
                   filePath: sdPath,
@@ -552,36 +473,138 @@ export class AIChatView extends ItemView {
                     sdEditState!.state = newState;
                     void this.storage.addMessage(this.currentConversation!.id, assistantMessageToSave!);
                   },
+                  onFeedback: (fp, outcome) => this.addDiffFeedback(fp, outcome),
                 });
               }
               sdMode = "done";
             } else {
-              // 标记不完整：进入流式 diff 模式
-              const ops = parseEditOperations(sdBody);
-              const { groups, errors } = buildChangeGroups(ops, sdOriginalContent);
-              const partialNewContent = applyOperations(sdOriginalContent, ops);
+              // DIFF_END 未出现：累积新 chunk，实时更新 diff
+              sdBody += chunk;
               if (sdContainer) {
+                const ops = parseEditOperations(sdBody);
+                const { groups, errors } = buildChangeGroups(ops, sdOriginalContent);
+                const newContent = applyOperations(sdOriginalContent, ops);
+                sdEditState!.newContent = newContent;
+                sdContainer.empty();
                 renderDiffWidget({
                   container: sdContainer,
                   filePath: sdPath,
                   groups,
                   errors,
                   state: "pending",
-                  newContent: partialNewContent,
-                  newLines: partialNewContent.split("\n"),
+                  newContent,
+                  newLines: newContent.split("\n"),
                   app: this.app,
-                  interactive: false,
+                  interactive: false, // 流式中不显示按钮
                 });
               }
-              sdMode = "streaming";
+              this.messageArea.scrollTop = this.messageArea.scrollHeight;
             }
-            this.messageArea.scrollTop = this.messageArea.scrollHeight;
-          } else {
-            // 无 DIFF_START：正常渲染 markdown
-            contentEl.empty();
-            await MarkdownRenderer.render(this.app, fullContent, contentEl, "", this);
-            this.addNoteLinkHandlers(contentEl);
-            this.messageArea.scrollTop = this.messageArea.scrollHeight;
+          } catch (diffError) {
+            console.error("Diff rendering error:", diffError);
+            // 继续流式处理，不中断
+          }
+        } else if (sdMode === "done") {
+          // diff 已完成，累积后续文字
+          sdPostContent += chunk;
+        } else {
+          // ---- normal 模式：渲染 markdown，检测 DIFF_START ----
+          try {
+            const startMatch = fullContent.match(DIFF_START_RE);
+            if (startMatch) {
+              // DIFF_START 出现：渲染前面的文字，创建 diff 容器
+              collectedEditStates = [];
+              const beforeText = fullContent.substring(0, startMatch.index)
+                .replace(/```[a-zA-Z]*\s*\n?/g, "")
+                .replace(/<\/?tool_call>/g, "");
+              contentEl.empty();
+              if (beforeText.trim()) {
+                await MarkdownRenderer.render(this.app, beforeText, contentEl, "", this);
+                this.addNoteLinkHandlers(contentEl);
+              }
+
+              // 解析 JSON meta
+              try {
+                const meta = JSON.parse(startMatch[1]);
+                sdPath = meta.path;
+              } catch {
+                sdPath = "unknown";
+              }
+              const file = this.app.vault.getAbstractFileByPath(sdPath);
+              sdOriginalContent = file instanceof TFile ? await this.app.vault.read(file) : "";
+
+              // 创建 diff 容器
+              sdContainer = contentEl.createDiv("vaultbuddy-streaming-diff");
+              sdEditState = {
+                path: sdPath,
+                newContent: "",
+                originalContent: sdOriginalContent,
+                state: "pending",
+              };
+
+              // 提取 DIFF_START 标记之后的操作行
+              const afterStart = fullContent.substring(startMatch.index! + startMatch[0].length);
+              sdBody = afterStart;
+
+              // 检查是否已经收到 DIFF_END
+              const endMatch = sdBody.match(DIFF_END_RE);
+              if (endMatch) {
+                // 标记完整：直接渲染
+                const opsText = sdBody.substring(0, endMatch.index);
+                sdBody = opsText;
+                const ops = parseEditOperations(sdBody);
+                const { groups, errors } = buildChangeGroups(ops, sdOriginalContent);
+                const newContent = applyOperations(sdOriginalContent, ops);
+                sdEditState.newContent = newContent;
+                collectedEditStates.push(sdEditState);
+                if (sdContainer) {
+                  renderDiffWidget({
+                    container: sdContainer,
+                    filePath: sdPath,
+                    groups,
+                    errors,
+                    state: "pending",
+                    newContent,
+                    newLines: newContent.split("\n"),
+                    app: this.app,
+                    onStateChange: (newState) => {
+                      sdEditState!.state = newState;
+                      void this.storage.addMessage(this.currentConversation!.id, assistantMessageToSave!);
+                    },
+                  });
+                }
+                sdMode = "done";
+              } else {
+                // 标记不完整：进入流式 diff 模式
+                const ops = parseEditOperations(sdBody);
+                const { groups, errors } = buildChangeGroups(ops, sdOriginalContent);
+                const partialNewContent = applyOperations(sdOriginalContent, ops);
+                if (sdContainer) {
+                  renderDiffWidget({
+                    container: sdContainer,
+                    filePath: sdPath,
+                    groups,
+                    errors,
+                    state: "pending",
+                    newContent: partialNewContent,
+                    newLines: partialNewContent.split("\n"),
+                    app: this.app,
+                    interactive: false,
+                  });
+                }
+                sdMode = "streaming";
+              }
+              this.messageArea.scrollTop = this.messageArea.scrollHeight;
+            } else {
+              // 无 DIFF_START：正常渲染 markdown
+              contentEl.empty();
+              await MarkdownRenderer.render(this.app, fullContent, contentEl, "", this);
+              this.addNoteLinkHandlers(contentEl);
+              this.messageArea.scrollTop = this.messageArea.scrollHeight;
+            }
+          } catch (renderError) {
+            console.error("Markdown rendering error:", renderError);
+            // 继续流式处理，不中断
           }
         }
       }
@@ -618,15 +641,22 @@ export class AIChatView extends ItemView {
         await MarkdownRenderer.render(this.app, cleanPostContent, contentEl, "", this);
         this.addNoteLinkHandlers(contentEl);
       }
+
+      // 正常结束，清除超时定时器
+      window.clearTimeout(thinkingTimeout);
     } catch (error: unknown) {
+      // 清除超时定时器
+      window.clearTimeout(thinkingTimeout);
+
       if (error instanceof Error && error.name === "AbortError") {
         // 用户主动终止：移除思考动画，添加终止提示
         messageEl.removeClass("thinking");
         const dots = contentEl.querySelector(".thinking-dots");
         if (dots) dots.remove();
       } else {
-        console.error("AI 调用失败:", error);
+        console.error("AI generation failed:", error);
         const msg = error instanceof Error ? error.message : String(error);
+        new Notice(`Error: ${msg}`);
         contentEl.textContent = `⚠️ ${msg}`;
         messageEl.addClass("error");
         messageEl.removeClass("thinking");
@@ -912,12 +942,18 @@ The file content in the context is shown with line numbers like [1], [2], etc. U
    */
   private addDiffFeedback(filePath: string, outcome: "applied" | "rejected"): void {
     if (!this.currentConversation) return;
-    const tag = outcome === "applied"
-      ? `<span style="color:#4caf50;font-weight:600">[Applied: ${filePath}]</span>`
-      : `<span style="color:#e53935;font-weight:600">[Rejected: ${filePath}]</span>`;
-    const feedbackMsg: ChatMessage = { role: "user", content: tag };
+    const content = outcome === "applied"
+      ? `You applied the suggested changes to ${filePath}.`
+      : `You rejected the suggested changes to ${filePath}.`;
+    const feedbackMsg: ChatMessage = { role: "assistant", content };
     void this.storage.addMessage(this.currentConversation.id, feedbackMsg);
     this.currentConversation.messages.push(feedbackMsg);
+
+    // 在 UI 上渲染反馈消息
+    void this.renderMessage(feedbackMsg);
+
+    // 更新对话统计（反馈消息 +1）
+    this.updateConversationStats();
   }
 
   private createStreamingMessage(): HTMLElement {
@@ -1012,7 +1048,9 @@ The file content in the context is shown with line numbers like [1], [2], etc. U
       if (!match) break;
 
       // 渲染 edit 块前的文字
-      const before = remaining.substring(0, match.index);
+      const before = remaining.substring(0, match.index)
+        .replace(/```[a-zA-Z]*\s*\n?/g, "")
+        .replace(/<\/?tool_call>/g, "");
       if (before.trim()) {
         await MarkdownRenderer.render(this.app, before, contentEl, "", this);
         this.addNoteLinkHandlers(contentEl);

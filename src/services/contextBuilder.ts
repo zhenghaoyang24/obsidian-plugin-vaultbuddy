@@ -1443,25 +1443,4 @@ export class ContextBuilder {
       };
     });
   }
-
-  /**
-   * 截断以适应 token 限制
-   */
-  private truncateToFit(chunks: ContextChunk[], maxTokens: number): string {
-    const result: string[] = [];
-    let currentTokens = 0;
-
-    for (const chunk of chunks) {
-      const chunkTokens = encode(chunk.content).length;
-
-      if (currentTokens + chunkTokens > maxTokens) {
-        break;
-      }
-
-      result.push(`> Source: [[${chunk.sourcePath.replace(/\.md$/, "")}]]\n\n${chunk.content}`);
-      currentTokens += chunkTokens;
-    }
-
-    return result.join("\n\n---\n\n");
-  }
 }

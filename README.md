@@ -23,12 +23,26 @@ AI-powered chat assistant for Obsidian. Chat with your entire vault as context.
 
 ## Features
 
-- **📖 Vault-Grounded Q&A** — Ask questions, and the AI retrieves relevant passages from your notes as context to provide grounded answers with automatic source citations.
+- **📖 Vault-Grounded Q&A** — Ask a question, and the AI automatically retrieves relevant content from your notes as context, providing answers grounded in your own materials.
 - **📄 Full-Note Context** — The note you're currently editing is included in full, so you can summarize, improve, or discuss it with complete awareness.
 - **🔗 Cross-Note Discovery** — Connect ideas across different notes; the AI finds related content even from separate files.
+- **✏️ Note Editing** — AI can suggest edits to your notes with a visual diff preview. Review changes line-by-line, then accept or reject with one click.
+- **🎯 Custom Skills** — Create reusable skills with specific instructions that activate automatically based on your messages. Perfect for repetitive tasks like translation, formatting, or summarization.
 - **🤖 Multi-Model Support** — Configure multiple OpenAI-compatible models (DeepSeek, OpenAI, Groq, etc.) and switch between them on the fly.
 - **🔒 Local & Secure** — API keys are encrypted and stored locally using Web Crypto API. All conversations are automatically saved.
-- **⚡ Streaming Responses** — See AI responses appear in real-time as they're generated.
+
+## Data Storage
+
+- **API Keys** — Encrypted and stored locally using Web Crypto API. They are never synced or uploaded to any server.
+- **Personal Data** — Chat history, skill configurations, plugin settings, and model settings are saved in a `data.json` file.
+
+If you use Obsidian across multiple devices, it's recommended to sync the `data.json` file via Git. If your `.gitignore` ignores the entire plugins directory, you can exclude `data.json` like this:
+
+```gitignore
+.obsidian/plugins/*
+!.obsidian/plugins/vaultbuddy/
+!.obsidian/plugins/vaultbuddy/data.json
+```
 
 ## How It Works
 
@@ -100,6 +114,7 @@ Click **Save Model**, then select your model as the **Default Model** in the dro
 | Default Model            | Which model to use for new conversations               |
 | Max Response Tokens      | Maximum length of AI responses (recommended 4096-8192) |
 | Custom Rules             | Extra instructions appended to the system prompt       |
+| Skills                   | Create, edit, and delete custom skills                 |
 | Resume Last Conversation | Automatically reload the previous chat on startup      |
 
 

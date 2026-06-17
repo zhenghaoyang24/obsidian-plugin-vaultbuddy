@@ -146,14 +146,15 @@ interface DiffLine {
  * 对两段文本做行级 diff，返回原始差异行列表（不含上下文）
  * 使用 LCS 算法，只输出真正变化的行
  *
- * 行号规则（新文件行号）：
- * - 所有删除行：统一使用 newStartLine（替换起始位置）
+ * 行号规则：
+ * - 删除行：使用 oldStartLine + oldIndex（原文件中的实际位置）
  * - 新增行：使用 newStartLine + newIndex（新文件中的实际位置）
  */
 function computeLineDiff(
   oldLines: string[],
   newLines: string[],
   newStartLine: number,
+  oldStartLine: number,
 ): DiffLine[] {
   if (oldLines.length === 0 && newLines.length === 0) return [];
 
@@ -168,9 +169,9 @@ function computeLineDiff(
 
   // 纯删除（new 为空）
   if (newLines.length === 0) {
-    return oldLines.map((content) => ({
+    return oldLines.map((content, i) => ({
       type: "remove" as const,
-      lineNum: newStartLine,
+      lineNum: oldStartLine + i,
       content,
     }));
   }
@@ -185,12 +186,12 @@ function computeLineDiff(
 
   const lines: DiffLine[] = [];
 
-  // 删除行：旧内容中不在 LCS 中的行，统一标记在 newStartLine
+  // 删除行：旧内容中不在 LCS 中的行，使用原文件实际位置
   for (let i = 0; i < oldLines.length; i++) {
     if (!commonOldSet.has(i)) {
       lines.push({
         type: "remove",
-        lineNum: newStartLine,
+        lineNum: oldStartLine + i,
         content: oldLines[i],
       });
     }
@@ -333,7 +334,7 @@ export function buildChangeGroups(
     // 新文件行号 = 原始起始行 + 之前所有操作的累积偏移
     const newStartLine = op.startLine + cumulativeOffset;
 
-    const diffs = computeLineDiff(oldLines, newLines, newStartLine);
+    const diffs = computeLineDiff(oldLines, newLines, newStartLine, op.startLine);
     allDiffs.push(...diffs);
 
     // 更新累积偏移：本次操作插入行数 - 删除行数
