@@ -10,25 +10,32 @@ AI-powered chat assistant for Obsidian. Chat with your entire vault as context.
 
 [![Obsidian Plugin](https://img.shields.io/badge/Obsidian-Plugin-7C3AED?logo=obsidian)](https://obsidian.md/plugins)
 
-<img 
-  alt="20260614015448_35_10" 
-  src="https://github.com/user-attachments/assets/388f05cb-7f90-4eb9-9235-ea51bd54f18c" 
-  style="width: 100%; height: auto; display: block;" 
-/>
-<img 
-  alt="20260614015503_36_10" 
-  src="https://github.com/user-attachments/assets/f9eac27b-703c-40fa-944c-50320372d7fd" 
-  style="width: 100%; height: auto; display: block;" 
-/>
+<img style="width: 100%; height: auto; display: block;" alt="chat" src="https://github.com/user-attachments/assets/2d8cef5d-4aa2-48b6-a44a-17318f5e07ae" />
+<img style="width: 100%; height: auto; display: block;" alt="edit" src="https://github.com/user-attachments/assets/38c31a07-965c-43bd-9a87-3bdbbdfcfc5b" />
+<img style="width: 100%; height: auto; display: block;" alt="setting" src="https://github.com/user-attachments/assets/441e28ea-82ba-482b-8644-4a3b1bbf46b0" />
 
 ## Features
 
-- **📖 Vault-Grounded Q&A** — Ask questions, and the AI retrieves relevant passages from your notes as context to provide grounded answers with automatic source citations.
+- **📖 Vault-Grounded Q&A** — Ask a question, and the AI automatically retrieves relevant content from your notes as context, providing answers grounded in your own materials.
 - **📄 Full-Note Context** — The note you're currently editing is included in full, so you can summarize, improve, or discuss it with complete awareness.
 - **🔗 Cross-Note Discovery** — Connect ideas across different notes; the AI finds related content even from separate files.
+- **✏️ Note Editing** — AI can suggest edits to your notes with a visual diff preview. Review changes line-by-line, then accept or reject with one click.
+- **🎯 Custom Skills** — Create reusable skills with specific instructions that activate automatically based on your messages. Perfect for repetitive tasks like translation, formatting, or summarization.
 - **🤖 Multi-Model Support** — Configure multiple OpenAI-compatible models (DeepSeek, OpenAI, Groq, etc.) and switch between them on the fly.
 - **🔒 Local & Secure** — API keys are encrypted and stored locally using Web Crypto API. All conversations are automatically saved.
-- **⚡ Streaming Responses** — See AI responses appear in real-time as they're generated.
+
+## Data Storage
+
+- **API Keys** — Encrypted and stored locally using Web Crypto API. They are never synced or uploaded to any server.
+- **Personal Data** — Chat history, skill configurations, plugin settings, and model settings are saved in a `data.json` file.
+
+If you use Obsidian across multiple devices, it's recommended to sync the `data.json` file via Git. If your `.gitignore` ignores the entire plugins directory, you can exclude `data.json` like this:
+
+```gitignore
+.obsidian/plugins/*
+!.obsidian/plugins/vaultbuddy/
+!.obsidian/plugins/vaultbuddy/data.json
+```
 
 ## How It Works
 
@@ -100,6 +107,7 @@ Click **Save Model**, then select your model as the **Default Model** in the dro
 | Default Model            | Which model to use for new conversations               |
 | Max Response Tokens      | Maximum length of AI responses (recommended 4096-8192) |
 | Custom Rules             | Extra instructions appended to the system prompt       |
+| Skills                   | Create, edit, and delete custom skills                 |
 | Resume Last Conversation | Automatically reload the previous chat on startup      |
 
 

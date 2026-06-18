@@ -527,8 +527,9 @@
   padding: 4px;
 }
 
+/* 模型下拉项 */
 .model-dropdown-item {
-  padding: 8px 12px;
+  padding: 5px 10px;
   border-radius: 6px;
   cursor: pointer;
   font-size: 13px;
@@ -901,4 +902,262 @@
 }
 .sources-panel-item:last-child {
   border-bottom: none;
+}
+
+/* ==================== Skills Tab 卡片 ==================== */
+
+/* Skill 卡片内容行（复用 model-card 的 header/body 布局） */
+.skill-card-row {
+  display: flex;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--background-modifier-border);
+  font-size: 13px;
+}
+.skill-card-row:last-child {
+  border-bottom: none;
+}
+.skill-card-label {
+  flex: 0 0 80px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.skill-card-value {
+  flex: 1;
+  color: var(--text-normal);
+  word-break: break-word;
+}
+.skill-card-instr {
+  color: var(--text-muted);
+  font-style: italic;
+  font-size: 12px;
+}
+
+/* Skill 编辑弹窗 */
+.skill-edit-modal .skill-modal-row {
+  margin-bottom: 12px;
+}
+.skill-edit-modal .skill-modal-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.skill-edit-modal .skill-modal-input {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 5px;
+  background-color: var(--background-primary);
+  color: var(--text-normal);
+  font-size: 13px;
+  box-sizing: border-box;
+}
+.skill-edit-modal .skill-modal-input:focus {
+  outline: none;
+  border-color: var(--interactive-accent);
+}
+.skill-edit-modal .skill-modal-textarea {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 5px;
+  background-color: var(--background-primary);
+  color: var(--text-normal);
+  font-size: 13px;
+  font-family: var(--font-monospace);
+  resize: vertical;
+  box-sizing: border-box;
+}
+.skill-edit-modal .skill-modal-textarea:focus {
+  outline: none;
+  border-color: var(--interactive-accent);
+}
+
+/* ==================== Diff 预览组件 ==================== */
+
+.vaultbuddy-diff {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  overflow: hidden;
+  margin: 10px 0;
+  background-color: var(--background-primary);
+}
+
+/* Header：文件路径 + 状态徽章 */
+.vaultbuddy-diff-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 14px;
+  background-color: var(--background-secondary);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.vaultbuddy-diff-path {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--interactive-accent);
+  cursor: pointer;
+  font-family: var(--font-monospace);
+}
+.vaultbuddy-diff-path:hover {
+  text-decoration: underline;
+}
+
+.vaultbuddy-diff-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+.vaultbuddy-diff-badge.badge-accepted {
+  background-color: rgba(102, 187, 106, 0.15);
+  color: #66bb6a;
+}
+.vaultbuddy-diff-badge.badge-rejected {
+  background-color: rgba(158, 158, 158, 0.15);
+  color: var(--text-muted);
+}
+
+/* Body：diff 内容区 */
+.vaultbuddy-diff-body {
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 4px 0;
+  font-family: var(--font-monospace);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* hunk 容器 */
+.vaultbuddy-diff-hunk {
+  /* 无额外样式，由行撑开 */
+}
+
+/* 组间空行分隔符（一行 = 一行代码高度，两行分隔 = 两个空行） */
+.vaultbuddy-diff-separator {
+  height: 1.2em;
+}
+
+/* 每行 */
+.vaultbuddy-diff-line {
+  display: flex;
+  align-items: flex-start;
+  padding: 0 14px;
+  min-height: 22px;
+}
+
+.vaultbuddy-diff-line.diff-add {
+  background-color: rgba(102, 187, 106, 0.1);
+}
+.vaultbuddy-diff-line.diff-remove {
+  background-color: rgba(229, 57, 53, 0.1);
+}
+.vaultbuddy-diff-line.diff-context {
+  /* 正常样式 — 当前未使用，保留以备扩展 */
+}
+
+/* 行号 */
+.vaultbuddy-diff-line-num {
+  flex-shrink: 0;
+  width: 60px;
+  text-align: right;
+  padding-right: 8px;
+  color: var(--text-muted);
+  opacity: 0.5;
+  user-select: none;
+  font-size: 11px;
+  line-height: inherit;
+}
+
+/* 前缀标记（+ / - / 空格） */
+.vaultbuddy-diff-prefix {
+  flex-shrink: 0;
+  width: 14px;
+  text-align: center;
+  font-weight: 600;
+  user-select: none;
+  line-height: inherit;
+}
+.vaultbuddy-diff-line.diff-add .vaultbuddy-diff-prefix {
+  color: #4caf50;
+}
+.vaultbuddy-diff-line.diff-remove .vaultbuddy-diff-prefix {
+  color: #e53935;
+}
+.vaultbuddy-diff-line.diff-context .vaultbuddy-diff-prefix {
+  color: var(--text-muted);
+  opacity: 0.3;
+}
+
+/* 内容文本 */
+.vaultbuddy-diff-content {
+  flex: 1;
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow-wrap: break-word;
+  line-height: inherit;
+}
+.vaultbuddy-diff-line.diff-add .vaultbuddy-diff-content {
+  color: #4caf50;
+}
+.vaultbuddy-diff-line.diff-remove .vaultbuddy-diff-content {
+  color: #e53935;
+}
+
+/* 无变更提示 */
+.vaultbuddy-diff-no-changes {
+  text-align: center;
+  padding: 20px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* 校验错误提示 */
+.vaultbuddy-diff-errors {
+  padding: 8px 14px;
+  background-color: rgba(229, 57, 53, 0.08);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+.vaultbuddy-diff-error-line {
+  font-size: 12px;
+  color: #e57373;
+  padding: 2px 0;
+}
+
+/* Footer：按钮区 */
+.vaultbuddy-diff-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--background-modifier-border);
+  background-color: var(--background-secondary);
+}
+
+.vaultbuddy-diff-btn {
+  padding: 5px 16px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.vaultbuddy-diff-btn-reject {
+  background-color: transparent;
+  border: 1px solid var(--background-modifier-border);
+  color: var(--text-normal);
+}
+.vaultbuddy-diff-btn-reject:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.vaultbuddy-diff-btn-accept {
+  background-color: var(--interactive-accent);
+  border: none;
+  color: var(--text-on-accent);
+}
+.vaultbuddy-diff-btn-accept:hover {
+  opacity: 0.85;
 }

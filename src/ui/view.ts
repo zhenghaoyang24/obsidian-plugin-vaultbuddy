@@ -13,10 +13,18 @@ import type AIChatPlugin from "../main";
 import { AIService } from "../services/aiService";
 import { Storage } from "../services/storage";
 import { SourceManager } from "../services/sourceManager";
-import { ContextBuilder, KnowledgeContextResult } from "../services/contextBuilder";
-import { ChatMessage, Conversation, ModelConfig } from "../core/types";
+import { ContextBuilder } from "../services/contextBuilder";
+import { ChatMessage, Conversation, ModelConfig, Skill, EditBlockState } from "../core/types";
 import { i18n } from "../core/i18n";
 import { encode } from "gpt-tokenizer";
+import { matchSkills } from "../services/skillMatcher";
+import {
+  parseEditBlocks,
+  parseEditOperations,
+  buildChangeGroups,
+  applyOperations,
+} from "../services/diffEngine";
+import { renderDiffWidget } from "./diffWidget";
 
 export const VIEW_TYPE_AI_CHAT = "vaultbuddy-view";
 
@@ -97,7 +105,7 @@ export class AIChatView extends ItemView {
       .setIcon("history")
       .setTooltip(i18n("view.history"))
       .onClick(() => {
-        if (!this.isGenerating) this.showHistory();
+        if (!this.isGenerating) void this.showHistory();
       });
 
     // 新对话按钮容器
@@ -108,7 +116,7 @@ export class AIChatView extends ItemView {
       .setIcon("plus")
       .setTooltip(i18n("view.newChat"))
       .onClick(() => {
-        if (!this.isGenerating) this.newConversation();
+        if (!this.isGenerating) void this.newConversation();
       });
 
     // 对话统计信息（在标题下方）
@@ -171,7 +179,7 @@ export class AIChatView extends ItemView {
       if (this.isGenerating) {
         this.stopGeneration();
       } else {
-        this.sendMessage();
+        void this.sendMessage();
       }
     });
 
@@ -188,7 +196,7 @@ export class AIChatView extends ItemView {
         if (this.isGenerating) {
           this.stopGeneration();
         } else {
-          this.sendMessage();
+          void this.sendMessage();
         }
       }
     });
@@ -264,7 +272,7 @@ export class AIChatView extends ItemView {
       position: "fixed",
       left: rect.left + "px",
       bottom: window.innerHeight - rect.top + 4 + "px",
-      width: Math.max(rect.width, 160) + "px",
+      width: Math.max(rect.width, 140) + "px",
     });
 
     activeDocument.body.appendChild(dropdown);
@@ -309,6 +317,9 @@ export class AIChatView extends ItemView {
     const content = this.inputEl.value.trim();
     if (!content || this.isGenerating) return;
 
+    // 自动拒绝上一条消息中的 pending 编辑块
+    await this.autoRejectPendingEdits();
+
     const model = this.getSelectedModel();
     if (!model) {
       new Notice(i18n("notice.noModel"));
@@ -341,6 +352,9 @@ export class AIChatView extends ItemView {
     this.currentConversation.messages.push(userMessage);
     this.currentConversation.updatedAt = Date.now();
 
+    // 更新对话统计（用户消息 +1）
+    this.updateConversationStats();
+
     // 进入生成状态
     this.setGeneratingState(true);
 
@@ -349,11 +363,23 @@ export class AIChatView extends ItemView {
     const messageEl = wrapper.querySelector(".message") as HTMLElement;
     let fullContent = "";
     let promptTokens = 0;
+    let activatedSkillName = "";
+    let collectedEditStates: EditBlockState[] | undefined;
+    let assistantMessageToSave: ChatMessage | undefined;
     const contentEl = messageEl.querySelector(".message-content") as HTMLElement;
     const statusEl = contentEl.querySelector(".thinking-status") as HTMLElement;
 
     // 创建 AbortController
     this.abortController = new AbortController();
+
+    // 最大思考时间（5分钟）
+    const MAX_THINKING_TIME = 5 * 60 * 1000;
+    const thinkingTimeout = window.setTimeout(() => {
+      if (this.isGenerating && this.abortController) {
+        new Notice("Thinking timeout: exceeded 5 minutes. Request cancelled.");
+        this.stopGeneration();
+      }
+    }, MAX_THINKING_TIME);
 
     try {
       // 检查是否需要构建知识库（sourceManager 为空表示需要扫描）
@@ -369,7 +395,16 @@ export class AIChatView extends ItemView {
 
       // 获取当前活动文件（用户正在查看的笔记）
       const activeFile = this.app.workspace.getActiveFile();
-      const messages = await this.buildMessages(content, fullModel, activeFile ?? undefined);
+      const { messages, activatedSkills } = await this.buildMessages(
+        content,
+        fullModel,
+        activeFile ?? undefined,
+      );
+
+      // 提取匹配的技能名
+      if (activatedSkills.length > 0) {
+        activatedSkillName = activatedSkills[0].name;
+      }
 
       // 计算 prompt token 数（所有发送消息的内容）
       promptTokens = messages.reduce((sum, m) => sum + encode(m.content).length, 0);
@@ -385,6 +420,19 @@ export class AIChatView extends ItemView {
       // 构建完成，更新状态为"正在思考"
       statusEl.textContent = i18n("view.thinkingLabel");
 
+      // --- 流式渲染（支持实时 diff） ---
+      const DIFF_START_RE = /(?:<tool_call>\s*)?%%\s*DIFF_START\s+(\{.*?\})\s*%%/;
+      const DIFF_END_RE = /%%\s*DIFF_END\s*%%(?:\s*<\/tool_call>)?/;
+
+      // 流式 diff 状态
+      let sdMode: "normal" | "streaming" | "done" = "normal";
+      let sdPath = "";
+      let sdBody = "";
+      let sdOriginalContent = "";
+      let sdContainer: HTMLElement | null = null;
+      let sdEditState: EditBlockState | null = null;
+      let sdPostContent = ""; // diff 结束后 AI 继续输出的内容
+
       for await (const chunk of AIService.chatStream(
         fullModel,
         messages,
@@ -393,26 +441,236 @@ export class AIChatView extends ItemView {
         this.plugin.settings.temperature,
       )) {
         fullContent += chunk;
-        // 移除状态提示，开始显示内容
+
+        // 移除状态提示
         if (statusEl) {
           statusEl.remove();
         }
-        contentEl.empty();
-        await MarkdownRenderer.render(this.app, fullContent, contentEl, "", this);
-        this.addNoteLinkHandlers(contentEl);
-        this.messageArea.scrollTop = this.messageArea.scrollHeight;
+
+        if (sdMode === "streaming") {
+          // ---- 正在流式 diff：累积操作行，检测结束标记 ----
+          try {
+            const endMatch = sdBody.match(DIFF_END_RE);
+            if (endMatch) {
+              // DIFF_END 出现：截取操作部分，完成 diff
+              const opsText = sdBody.substring(0, endMatch.index);
+              sdBody = opsText;
+
+              if (!collectedEditStates) collectedEditStates = [];
+              const ops = parseEditOperations(sdBody);
+              const { groups, errors } = buildChangeGroups(ops, sdOriginalContent);
+              const newContent = applyOperations(sdOriginalContent, ops);
+              sdEditState!.newContent = newContent;
+              collectedEditStates.push(sdEditState!);
+
+              if (sdContainer) {
+                sdContainer.empty();
+                renderDiffWidget({
+                  container: sdContainer,
+                  filePath: sdPath,
+                  groups,
+                  errors,
+                  state: "pending",
+                  newContent,
+                  newLines: newContent.split("\n"),
+                  app: this.app,
+                  onStateChange: (newState) => {
+                    sdEditState!.state = newState;
+                    void this.storage.addMessage(
+                      this.currentConversation!.id,
+                      assistantMessageToSave!,
+                    );
+                  },
+                  onFeedback: (fp, outcome) => this.addDiffFeedback(fp, outcome),
+                });
+              }
+              sdMode = "done";
+            } else {
+              // DIFF_END 未出现：累积新 chunk，实时更新 diff
+              sdBody += chunk;
+              if (sdContainer) {
+                const ops = parseEditOperations(sdBody);
+                const { groups, errors } = buildChangeGroups(ops, sdOriginalContent);
+                const newContent = applyOperations(sdOriginalContent, ops);
+                sdEditState!.newContent = newContent;
+                sdContainer.empty();
+                renderDiffWidget({
+                  container: sdContainer,
+                  filePath: sdPath,
+                  groups,
+                  errors,
+                  state: "pending",
+                  newContent,
+                  newLines: newContent.split("\n"),
+                  app: this.app,
+                  interactive: false, // 流式中不显示按钮
+                });
+              }
+              this.messageArea.scrollTop = this.messageArea.scrollHeight;
+            }
+          } catch (diffError) {
+            console.error("Diff rendering error:", diffError);
+            // 继续流式处理，不中断
+          }
+        } else if (sdMode === "done") {
+          // diff 已完成，累积后续文字
+          sdPostContent += chunk;
+        } else {
+          // ---- normal 模式：渲染 markdown，检测 DIFF_START ----
+          try {
+            const startMatch = fullContent.match(DIFF_START_RE);
+            if (startMatch) {
+              // DIFF_START 出现：渲染前面的文字，创建 diff 容器
+              collectedEditStates = [];
+              const beforeText = fullContent
+                .substring(0, startMatch.index)
+                .replace(/```[a-zA-Z]*\s*\n?/g, "")
+                .replace(/<\/?tool_call>/g, "");
+              contentEl.empty();
+              if (beforeText.trim()) {
+                await MarkdownRenderer.render(this.app, beforeText, contentEl, "", this);
+                this.addNoteLinkHandlers(contentEl);
+              }
+
+              // 解析 JSON meta
+              try {
+                const meta = JSON.parse(startMatch[1]);
+                sdPath = meta.path;
+              } catch {
+                sdPath = "unknown";
+              }
+              const file = this.app.vault.getAbstractFileByPath(sdPath);
+              sdOriginalContent = file instanceof TFile ? await this.app.vault.read(file) : "";
+
+              // 创建 diff 容器
+              sdContainer = contentEl.createDiv("vaultbuddy-streaming-diff");
+              sdEditState = {
+                path: sdPath,
+                newContent: "",
+                originalContent: sdOriginalContent,
+                state: "pending",
+              };
+
+              // 提取 DIFF_START 标记之后的操作行
+              const afterStart = fullContent.substring(startMatch.index! + startMatch[0].length);
+              sdBody = afterStart;
+
+              // 检查是否已经收到 DIFF_END
+              const endMatch = sdBody.match(DIFF_END_RE);
+              if (endMatch) {
+                // 标记完整：直接渲染
+                const opsText = sdBody.substring(0, endMatch.index);
+                sdBody = opsText;
+                const ops = parseEditOperations(sdBody);
+                const { groups, errors } = buildChangeGroups(ops, sdOriginalContent);
+                const newContent = applyOperations(sdOriginalContent, ops);
+                sdEditState.newContent = newContent;
+                collectedEditStates.push(sdEditState);
+                if (sdContainer) {
+                  renderDiffWidget({
+                    container: sdContainer,
+                    filePath: sdPath,
+                    groups,
+                    errors,
+                    state: "pending",
+                    newContent,
+                    newLines: newContent.split("\n"),
+                    app: this.app,
+                    onStateChange: (newState) => {
+                      sdEditState!.state = newState;
+                      void this.storage.addMessage(
+                        this.currentConversation!.id,
+                        assistantMessageToSave!,
+                      );
+                    },
+                  });
+                }
+                sdMode = "done";
+              } else {
+                // 标记不完整：进入流式 diff 模式
+                const ops = parseEditOperations(sdBody);
+                const { groups, errors } = buildChangeGroups(ops, sdOriginalContent);
+                const partialNewContent = applyOperations(sdOriginalContent, ops);
+                if (sdContainer) {
+                  renderDiffWidget({
+                    container: sdContainer,
+                    filePath: sdPath,
+                    groups,
+                    errors,
+                    state: "pending",
+                    newContent: partialNewContent,
+                    newLines: partialNewContent.split("\n"),
+                    app: this.app,
+                    interactive: false,
+                  });
+                }
+                sdMode = "streaming";
+              }
+              this.messageArea.scrollTop = this.messageArea.scrollHeight;
+            } else {
+              // 无 DIFF_START：正常渲染 markdown
+              contentEl.empty();
+              await MarkdownRenderer.render(this.app, fullContent, contentEl, "", this);
+              this.addNoteLinkHandlers(contentEl);
+              this.messageArea.scrollTop = this.messageArea.scrollHeight;
+            }
+          } catch (renderError) {
+            console.error("Markdown rendering error:", renderError);
+            // 继续流式处理，不中断
+          }
+        }
       }
 
-      messageEl.removeClass("thinking");
+      // 流式结束：如果 diff 仍在流式中（DIFF_END 未收到），用已有内容完成
+      if (sdMode === "streaming" && sdEditState && sdContainer) {
+        if (!collectedEditStates) collectedEditStates = [];
+        const ops = parseEditOperations(sdBody);
+        const { groups, errors } = buildChangeGroups(ops, sdOriginalContent);
+        const newContent = applyOperations(sdOriginalContent, ops);
+        sdEditState.newContent = newContent;
+        collectedEditStates.push(sdEditState);
+        sdContainer.empty();
+        renderDiffWidget({
+          container: sdContainer,
+          filePath: sdPath,
+          groups,
+          errors,
+          state: "pending",
+          newContent,
+          newLines: newContent.split("\n"),
+          app: this.app,
+          onStateChange: (newState) => {
+            sdEditState!.state = newState;
+            void this.storage.addMessage(this.currentConversation!.id, assistantMessageToSave!);
+          },
+        });
+        sdMode = "done";
+      }
+
+      // 渲染 diff 结束后 AI 继续输出的文字
+      const cleanPostContent = sdPostContent.replace(/<\/?tool_call>/g, "");
+      if (cleanPostContent.trim()) {
+        await MarkdownRenderer.render(this.app, cleanPostContent, contentEl, "", this);
+        this.addNoteLinkHandlers(contentEl);
+      }
+
+      // 正常结束，清除超时定时器
+      window.clearTimeout(thinkingTimeout);
     } catch (error: unknown) {
+      // 清除超时定时器
+      window.clearTimeout(thinkingTimeout);
+
       if (error instanceof Error && error.name === "AbortError") {
         // 用户主动终止：移除思考动画，添加终止提示
         messageEl.removeClass("thinking");
+        const statusText = contentEl.querySelector(".thinking-status");
+        if (statusText) statusText.remove();
         const dots = contentEl.querySelector(".thinking-dots");
         if (dots) dots.remove();
       } else {
-        console.error("AI 调用失败:", error);
+        console.error("AI generation failed:", error);
         const msg = error instanceof Error ? error.message : String(error);
+        new Notice(`Error: ${msg}`);
         contentEl.textContent = `⚠️ ${msg}`;
         messageEl.addClass("error");
         messageEl.removeClass("thinking");
@@ -425,17 +683,24 @@ export class AIChatView extends ItemView {
       const assistantMessage: ChatMessage = {
         role: "assistant",
         content: fullContent,
+        skillName: activatedSkillName || undefined,
         usage: { promptTokens, completionTokens },
+        editStates: collectedEditStates,
       };
+      assistantMessageToSave = assistantMessage;
       await this.storage.addMessage(this.currentConversation.id, assistantMessage);
       this.currentConversation.messages.push(assistantMessage);
       this.currentConversation.updatedAt = Date.now();
 
       // 添加操作按钮和 token 信息（在气泡外面下方）
       const actionsEl = wrapper.createDiv("message-actions");
-      // token 信息
+      // token 信息 + 技能标签
       const tokenEl = actionsEl.createSpan("token-usage");
-      tokenEl.textContent = `${i18n("tokens.prompt")}: ${this.formatTokenCount(promptTokens)}  ${i18n("tokens.completion")}: ${this.formatTokenCount(completionTokens)}`;
+      let tokenText = `${i18n("tokens.prompt")}: ${this.formatTokenCount(promptTokens)}  ${i18n("tokens.completion")}: ${this.formatTokenCount(completionTokens)}`;
+      if (activatedSkillName) {
+        tokenText += `  ${i18n("view.skillLabel")}：${activatedSkillName}`;
+      }
+      tokenEl.textContent = tokenText;
       // 操作按钮
       const actionsRight = actionsEl.createDiv("message-actions-right");
       this.addActionBtn(actionsRight, i18n("view.copy"), fullContent);
@@ -466,7 +731,11 @@ export class AIChatView extends ItemView {
     }, 0);
   }
 
-  private async buildMessages(userMessage: string, model: ModelConfig, currentFile?: TFile): Promise<ChatMessage[]> {
+  private async buildMessages(
+    userMessage: string,
+    model: ModelConfig,
+    currentFile?: TFile,
+  ): Promise<{ messages: ChatMessage[]; activatedSkills: Skill[] }> {
     const messages: ChatMessage[] = [];
 
     // System prompt - guide AI to reference note locations
@@ -503,11 +772,69 @@ Detect the language of the user's most recent message and respond EXCLUSIVELY in
 - For multi-part questions, structure your answer with clear sections
 - If reviewing or critiquing content, be specific: quote the relevant passage, explain the issue, and suggest a fix
 - When listing multiple items, prefer bullet points or numbered lists for readability
-- Use code blocks with language tags for any code snippets`;
+- Use code blocks with language tags for any code snippets
 
-    const systemPrompt = this.plugin.settings.customRules
+## Note Editing
+You can suggest edits to the user's notes. The user decides whether to apply your suggestions. Follow these rules precisely:
+
+### When the user clearly wants to modify a note (strong intent):
+Examples: "help me polish this note", "rewrite paragraph 3", "translate this note to English", "帮我润色当前笔记"
+1. Briefly describe what changes you will suggest (1-2 sentences)
+2. Output an edit block with the specific changes (see format below)
+3. The \`path\` MUST be the exact vault-relative file path
+4. If the user says "current note" or "this note", use the current active file path from the context
+5. If you cannot determine WHICH file to edit, you MUST ask the user — never guess
+6. Do NOT claim you have already modified the file. You are only providing a suggestion — the user will decide whether to apply it.
+
+### When the user is just asking for optimization advice (weak intent):
+Examples: "how can I improve my note?", "what's wrong with this article?", "我的笔记还可以怎么优化"
+1. Answer the question normally with analysis and suggestions
+2. End with: "If you'd like, I can provide a suggested edit for you to review."
+3. Do NOT output an edit block yet
+4. Only output an edit block after the user explicitly confirms
+
+### Edit block format:
+Use this EXACT format. The start/end markers are Obsidian comments (%%) and MUST each be on their own line:
+\`\`\`
+%% DIFF_START {"path":"relative/path/to/note.md"} %%
+{"startLine":3,"endLine":5,"old":"original line 3\\noriginal line 4\\noriginal line 5","new":"new line 3\\nnew line 4"}
+{"startLine":10,"endLine":10,"old":"original line 10","new":"new line 10"}
+%% DIFF_END %%
+\`\`\`
+
+Each line between the start and end markers is a JSON object representing one edit operation:
+- \`startLine\` / \`endLine\`: line range in the ORIGINAL file (1-based, inclusive)
+- \`old\`: the original content of that range (lines joined by \\n)
+- \`new\`: the replacement content (lines joined by \\n)
+
+Operation types:
+- **Replace**: both old and new have content
+- **Insert** (after startLine): old is empty string "", new has the inserted content
+- **Delete**: old has the content, new is empty string ""
+
+The file content in the context is shown with line numbers like [1], [2], etc. Use these exact line numbers in your edit operations.
+
+### Safety rules:
+- Only output edit blocks when the user has explicitly agreed to modify
+- The path must be accurate — never fabricate paths
+- The \`old\` content must EXACTLY match the original file content at those lines (including spaces, punctuation)
+- If the file path from context doesn't match what the user means, ask for clarification
+- Sort edit operations by line number (ascending) for clarity
+- NEVER claim you have applied or modified the file. You are providing a suggestion only — the user will choose to accept or reject it.
+- If you see "[Applied: filename]" in the conversation, the user accepted a previous suggestion. If you see "[Rejected: filename]", the user rejected it. Do not assume a suggestion was applied unless you see the "Applied" confirmation.`;
+
+    let systemPrompt = this.plugin.settings.customRules
       ? `${basePrompt}\n\n## Custom Rules\n${this.plugin.settings.customRules}`
       : basePrompt;
+
+    // 检查是否有匹配的 Skill，有则注入到 system prompt
+    const matchedSkills = matchSkills(userMessage, this.plugin.settings.skills);
+    const activatedSkills = [...matchedSkills];
+    if (matchedSkills.length > 0) {
+      const skillsBlock = matchedSkills.map((s) => `- **${s.name}**: ${s.instruction}`).join("\n");
+      systemPrompt += `\n\n## Activated Skills\nThe following skills are activated based on your request:\n${skillsBlock}\n\nFollow the instructions of the activated skill(s) above when responding. If multiple skills are activated, combine them appropriately.`;
+    }
+
     messages.push({ role: "system", content: systemPrompt });
 
     // 注入最近历史对话（最多 20 条，排除最后一条即当前用户消息）
@@ -538,6 +865,19 @@ Detect the language of the user's most recent message and respond EXCLUSIVELY in
         });
       }
 
+      // 如果有当前活动文件，注入带行号的版本（供编辑参考）
+      if (currentFile) {
+        const fileContent = await this.app.vault.read(currentFile);
+        const numberedLines = fileContent
+          .split("\n")
+          .map((line, idx) => `[${idx + 1}] ${line}`)
+          .join("\n");
+        messages.push({
+          role: "system",
+          content: `The current note "${currentFile.path}" with line numbers (for edit reference):\n\n${numberedLines}`,
+        });
+      }
+
       // 保存本次使用的源文件路径（稍后 AI 回答完后更新 UI）
       this.currentSourcePaths = contextResult.sourcePaths;
     } catch (error) {
@@ -545,7 +885,7 @@ Detect the language of the user's most recent message and respond EXCLUSIVELY in
     }
 
     messages.push({ role: "user", content: userMessage });
-    return messages;
+    return { messages, activatedSkills };
   }
 
   // ==================== 笔记链接处理 ====================
@@ -571,7 +911,7 @@ Detect the language of the user's most recent message and respond EXCLUSIVELY in
 
       anchor.addEventListener("click", (e) => {
         e.preventDefault();
-        this.app.workspace.openLinkText(href, "", false);
+        void this.app.workspace.openLinkText(href, "", false);
       });
     });
   }
@@ -611,6 +951,26 @@ Detect the language of the user's most recent message and respond EXCLUSIVELY in
     }
   }
 
+  /**
+   * 向对话记录追加 diff 反馈消息，让 AI 在后续对话中知道修改建议的结果
+   */
+  private addDiffFeedback(filePath: string, outcome: "applied" | "rejected"): void {
+    if (!this.currentConversation) return;
+    const content =
+      outcome === "applied"
+        ? `You applied the suggested changes to ${filePath}.`
+        : `You rejected the suggested changes to ${filePath}.`;
+    const feedbackMsg: ChatMessage = { role: "assistant", content };
+    void this.storage.addMessage(this.currentConversation.id, feedbackMsg);
+    this.currentConversation.messages.push(feedbackMsg);
+
+    // 在 UI 上渲染反馈消息
+    void this.renderMessage(feedbackMsg);
+
+    // 更新对话统计（反馈消息 +1）
+    this.updateConversationStats();
+  }
+
   private createStreamingMessage(): HTMLElement {
     const wrapper = this.messageArea.createDiv("message-wrapper");
     const messageEl = wrapper.createDiv("message assistant thinking");
@@ -640,9 +1000,15 @@ Detect the language of the user's most recent message and respond EXCLUSIVELY in
     const contentEl = bubble.createDiv("message-content");
 
     if (message.role === "assistant") {
-      await MarkdownRenderer.render(this.app, message.content, contentEl, "", this);
-      this.addNoteLinkHandlers(contentEl);
+      if (message.editStates && message.editStates.length > 0) {
+        // 有 edit 块的消息：分段渲染 markdown + diff 组件
+        await this.renderMessageWithEditBlocks(message, contentEl);
+      } else {
+        await MarkdownRenderer.render(this.app, message.content, contentEl, "", this);
+        this.addNoteLinkHandlers(contentEl);
+      }
     } else {
+      // 用户消息：纯文本渲染
       contentEl.textContent = message.content;
     }
 
@@ -650,9 +1016,13 @@ Detect the language of the user's most recent message and respond EXCLUSIVELY in
     const actionsEl = wrapper.createDiv("message-actions");
 
     if (message.role === "assistant" && message.usage) {
-      // token 信息
+      // token 信息 + 技能标签
       const tokenEl = actionsEl.createSpan("token-usage");
-      tokenEl.textContent = `${i18n("tokens.prompt")}: ${this.formatTokenCount(message.usage.promptTokens)}  ${i18n("tokens.completion")}: ${this.formatTokenCount(message.usage.completionTokens)}`;
+      let tokenText = `${i18n("tokens.prompt")}: ${this.formatTokenCount(message.usage.promptTokens)}  ${i18n("tokens.completion")}: ${this.formatTokenCount(message.usage.completionTokens)}`;
+      if (message.skillName) {
+        tokenText += `  ${i18n("view.skillLabel")}: ${message.skillName}`;
+      }
+      tokenEl.textContent = tokenText;
       // 操作按钮
       const actionsRight = actionsEl.createDiv("message-actions-right");
       this.addActionBtn(actionsRight, i18n("view.copy"), message.content);
@@ -666,6 +1036,116 @@ Detect the language of the user's most recent message and respond EXCLUSIVELY in
     }
 
     this.messageArea.scrollTop = this.messageArea.scrollHeight;
+  }
+
+  /**
+   * 从对话历史推导编辑块状态
+   * 优先扫描后续消息中的反馈消息（已持久化），没有反馈才使用 fallback
+   */
+  private getEditBlockState(
+    message: ChatMessage,
+    filePath: string,
+    fallback: "pending" | "accepted" | "rejected",
+  ): "pending" | "accepted" | "rejected" {
+    if (!this.currentConversation) return fallback;
+
+    const msgs = this.currentConversation.messages;
+    const msgIndex = msgs.indexOf(message);
+    if (msgIndex < 0) return fallback;
+
+    // 扫描当前消息之后的反馈消息
+    for (let i = msgIndex + 1; i < msgs.length; i++) {
+      const msg = msgs[i];
+      if (msg.role === "assistant") {
+        const content = msg.content;
+        if (content.includes(`applied the suggested changes to ${filePath}`)) {
+          return "accepted";
+        }
+        if (content.includes(`rejected the suggested changes to ${filePath}`)) {
+          return "rejected";
+        }
+      }
+    }
+
+    return fallback;
+  }
+
+  /**
+   * 渲染包含 edit 块的消息（用于流式完成后的首次渲染和历史记录加载）
+   * 将 edit 块替换为 Diff 组件，其余部分照常 Markdown 渲染
+   */
+  private async renderMessageWithEditBlocks(
+    message: ChatMessage,
+    contentEl: HTMLElement,
+  ): Promise<void> {
+    const editBlocks = parseEditBlocks(message.content);
+    const editStates = message.editStates || [];
+    const editRegex = /%%\s*DIFF_START\s+\{.*?\}\s*%%\s*\n[\s\S]*?\n\s*%%\s*DIFF_END\s*%%/;
+
+    let remaining = message.content;
+    let editIdx = 0;
+
+    for (const block of editBlocks) {
+      const match = remaining.match(editRegex);
+      if (!match) break;
+
+      // 渲染 edit 块前的文字
+      const before = remaining
+        .substring(0, match.index)
+        .replace(/```[a-zA-Z]*\s*\n?/g, "")
+        .replace(/<\/?tool_call>/g, "");
+      if (before.trim()) {
+        await MarkdownRenderer.render(this.app, before, contentEl, "", this);
+        this.addNoteLinkHandlers(contentEl);
+      }
+
+      // 获取对应的 editState
+      const editState = editStates[editIdx];
+      const newContent = editState?.newContent ?? "";
+      const filePath = editState?.path ?? block.path;
+      const originalContent = editState?.originalContent ?? "";
+      // 从对话历史推导状态，而非依赖 editState.state（尚未持久化时可能丢失）
+      const derivedState = this.getEditBlockState(
+        message,
+        filePath,
+        editState?.state ?? "pending",
+      );
+      const state = derivedState;
+
+      // 用保存的原始内容和新内容计算 diff
+      const ops = parseEditOperations(block.body);
+      const { groups } = buildChangeGroups(ops, originalContent || "");
+
+      renderDiffWidget({
+        container: contentEl,
+        filePath,
+        groups,
+        state,
+        newContent,
+        newLines: newContent.split("\n"),
+        app: this.app,
+        interactive: state === "pending",
+        onStateChange: (newState) => {
+          if (editState) {
+            editState.state = newState;
+            void this.storage.saveConversation(this.currentConversation!);
+          }
+        },
+        onFeedback: (fp, outcome) => this.addDiffFeedback(fp, outcome),
+      });
+
+      remaining = remaining.substring((match.index ?? 0) + match[0].length);
+      editIdx++;
+    }
+
+    // 渲染剩余文字
+    const cleanRemaining = remaining
+      .replace(/```[a-zA-Z]*\s*\n?/g, "")
+      .replace(/<\/?tool_call>/g, "");
+    if (cleanRemaining.trim()) {
+      await MarkdownRenderer.render(this.app, cleanRemaining, contentEl, "", this);
+      this.addNoteLinkHandlers(contentEl);
+    }
   }
 
   private addActionBtn(
@@ -689,6 +1169,39 @@ Detect the language of the user's most recent message and respond EXCLUSIVELY in
         });
       }
     });
+  }
+
+  // ==================== 编辑块管理 ====================
+
+  /**
+   * 自动拒绝当前对话中所有 pending 状态的编辑块
+   * 在切换对话、开启新对话、发送新消息时调用
+   */
+  private async autoRejectPendingEdits(): Promise<void> {
+    if (!this.currentConversation) return;
+    const msgs = this.currentConversation.messages;
+    const pendingEdits: Array<{ path: string }> = [];
+    for (const msg of msgs) {
+      if (msg.role !== "assistant" || !msg.editStates) continue;
+      for (const edit of msg.editStates) {
+        if (edit.state === "pending") {
+          edit.state = "rejected";
+          pendingEdits.push({ path: edit.path });
+        }
+      }
+    }
+    // 追加拒绝反馈消息
+    for (const pe of pendingEdits) {
+      const feedbackMsg: ChatMessage = {
+        role: "assistant",
+        content: `You rejected the suggested changes to ${pe.path}.`,
+      };
+      await this.storage.addMessage(this.currentConversation.id, feedbackMsg);
+      this.currentConversation.messages.push(feedbackMsg);
+    }
+    // 始终保存当前对话，确保内存中的状态变更（用户已点接受/拒绝但异步保存未完成）
+    // 在切换对话前写入存储，防止返回时读到 stale 数据
+    await this.storage.saveConversation(this.currentConversation);
   }
 
   // ==================== 历史对话 ====================
@@ -723,6 +1236,7 @@ Detect the language of the user's most recent message and respond EXCLUSIVELY in
   }
 
   private async loadConversation(conversation: Conversation): Promise<void> {
+    await this.autoRejectPendingEdits();
     this.currentConversation = conversation;
     this.messageArea.empty();
     // 切换对话时隐藏源笔记
@@ -737,6 +1251,7 @@ Detect the language of the user's most recent message and respond EXCLUSIVELY in
 
   private async newConversation(): Promise<void> {
     if (this.isGenerating) return;
+    await this.autoRejectPendingEdits();
     this.currentConversation = null;
     this.messageArea.empty();
     // 新对话清空源笔记和统计
@@ -848,7 +1363,7 @@ Detect the language of the user's most recent message and respond EXCLUSIVELY in
       // 点击跳转到笔记
       itemEl.addEventListener("click", (e) => {
         e.stopPropagation();
-        this.app.workspace.openLinkText(path.replace(/\.md$/, ""), "", false);
+        void this.app.workspace.openLinkText(path.replace(/\.md$/, ""), "", false);
         // 跳转后收起面板
         this.isSourcesPanelOpen = false;
         this.sourcesPanelEl.removeClass("expanded");

@@ -20,6 +20,16 @@ export interface ModelConfig {
 }
 
 /**
+ * Skill 定义
+ */
+export interface Skill {
+  id: string;
+  name: string;
+  description: string;
+  instruction: string;
+}
+
+/**
  * 插件设置
  */
 export interface AIChatSettings {
@@ -30,6 +40,7 @@ export interface AIChatSettings {
   resumeLastConversation: boolean;
   temperature: number;
   encryptedApiKeys?: Record<string, string>; // 加密存储的 API Keys
+  skills: Skill[];
 }
 
 /**
@@ -42,7 +53,18 @@ export const DEFAULT_SETTINGS: AIChatSettings = {
   customRules: "",
   resumeLastConversation: true,
   temperature: 0.7,
+  skills: [],
 };
+
+/**
+ * 编辑块状态
+ */
+export interface EditBlockState {
+  path: string; // 文件路径
+  newContent: string; // AI 提议的完整新内容
+  originalContent: string; // 编辑时的原始文件内容
+  state: "pending" | "accepted" | "rejected";
+}
 
 /**
  * 聊天消息
@@ -50,11 +72,15 @@ export const DEFAULT_SETTINGS: AIChatSettings = {
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
   content: string;
+  /** 激活的 Skill 名称（如果有） */
+  skillName?: string;
   /** token 使用量（仅 assistant 消息携带） */
   usage?: {
     promptTokens: number;
     completionTokens: number;
   };
+  /** 编辑块状态列表 */
+  editStates?: EditBlockState[];
 }
 
 /**
@@ -88,12 +114,4 @@ export interface ContextChunk {
   content: string;
   sourcePath: string;
   relevance: number;
-}
-
-/**
- * 文件选择结果
- */
-export interface SelectedItem {
-  type: "file" | "folder";
-  path: string;
 }

@@ -104,7 +104,7 @@ export class AIService {
     while (true) {
       // 检查是否被中止
       if (signal?.aborted) {
-        reader.cancel();
+        void reader.cancel();
         throw new DOMException("Aborted", "AbortError");
       }
 
@@ -124,7 +124,7 @@ export class AIService {
           if (content) {
             yield content;
           }
-        } catch (_) {
+        } catch {
           // 忽略解析错误
         }
       }

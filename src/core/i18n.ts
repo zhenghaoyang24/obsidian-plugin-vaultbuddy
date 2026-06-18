@@ -20,7 +20,8 @@ const strings: Record<Lang, Record<string, string>> = {
     "view.thinking": "思考中...",
     "view.buildingContext": "正在构建知识库...",
     "view.thinkingLabel": "正在思考...",
-    "view.stopped": "— 已被用户终止 —",
+    "view.stopped": "— 此对话被终止 —",
+    "view.skillLabel": "技能",
     "view.copy": "复制",
     "view.copied": "已复制",
     "view.fill": "填入",
@@ -46,8 +47,8 @@ const strings: Record<Lang, Record<string, string>> = {
     "sources.noMatch": "没有匹配的笔记",
 
     // Settings
-    "settings.tabGeneral": "通用设置",
-    "settings.tabModels": "模型配置",
+    "settings.tabGeneral": "通用",
+    "settings.tabModels": "模型",
     "settings.temperature": "回复温度 (Temperature)",
     "settings.temperatureDesc":
       "控制 AI 回复的创造性和随机性。较低的值（0.1-0.3）更精确，较高的值（0.7-1.0）更有创意。默认 0.7。",
@@ -97,11 +98,40 @@ const strings: Record<Lang, Record<string, string>> = {
     "settings.contextWindowPlaceholder": "默认 128000（推荐 65536-128000）",
     "settings.maxTokensPlaceholder": "4096",
 
+    // Skills
+    "settings.tabSkills": "技能",
+    "settings.skills": "技能配置",
+    "settings.addSkill": "+ 添加技能",
+    "settings.addSkillDesc": "添加可被 AI 按需激活的指令技能",
+    "settings.noSkills": "暂无技能，点击上方按钮添加",
+    "settings.unnamedSkill": "未命名技能",
+    "settings.skillName": "技能名称",
+    "settings.skillNamePlaceholder": "例如：文章总结",
+    "settings.skillDescription": "技能描述",
+    "settings.skillDescriptionPlaceholder": "简要描述该技能的用途，用于 AI 识别匹配",
+    "settings.skillInstruction": "具体指令",
+    "settings.skillInstructionPlaceholder": "告诉 AI 应该怎么做...",
+    "settings.skillAddTitle": "添加技能",
+    "settings.skillEditTitle": "编辑技能",
+    "settings.skillAdded": "✅ 技能已添加",
+    "settings.skillUpdated": "✅ 技能已更新",
+    "settings.skillDeleteMsg": "确定要删除技能",
+
     // Notices
     "notice.noModel": "请先在设置中配置模型",
     "notice.noApiKey": "请先在设置中配置 API Key",
     "notice.apiFail": "AI 调用失败:",
     "notice.connectionTestNeedsConfig": "请先填写完整的模型信息再测试",
+
+    // Diff
+    "diff.accept": "应用",
+    "diff.reject": "拒绝",
+    "diff.accepted": "已应用",
+    "diff.rejected": "已拒绝",
+    "diff.autoRejected": "已拒绝（自动）",
+    "diff.applySuccess": "✅ 笔记已更新",
+    "diff.fileNotFound": "⚠️ 文件已不存在，无法应用",
+    "diff.noChanges": "无变更",
   },
 
   en: {
@@ -113,7 +143,8 @@ const strings: Record<Lang, Record<string, string>> = {
     "view.thinking": "Thinking...",
     "view.buildingContext": "Building knowledge base...",
     "view.thinkingLabel": "Thinking...",
-    "view.stopped": "— Stopped by user —",
+    "view.stopped": "— This conversation was terminated —",
+    "view.skillLabel": "Skill",
     "view.copy": "Copy",
     "view.copied": "Copied",
     "view.fill": "Quote",
@@ -191,11 +222,41 @@ const strings: Record<Lang, Record<string, string>> = {
     "settings.contextWindowPlaceholder": "Default 128000 (recommended 65536-128000)",
     "settings.maxTokensPlaceholder": "4096",
 
+    // Skills
+    "settings.tabSkills": "Skills",
+    "settings.skills": "Skills",
+    "settings.addSkill": "+ Add Skill",
+    "settings.addSkillDesc": "Add instruction skills that AI can activate on demand",
+    "settings.noSkills": "No skills yet. Click the button above to add one.",
+    "settings.unnamedSkill": "Unnamed Skill",
+    "settings.skillName": "Name",
+    "settings.skillNamePlaceholder": "e.g. Article Summarization",
+    "settings.skillDescription": "Description",
+    "settings.skillDescriptionPlaceholder":
+      "Briefly describe what this skill does (AI uses this for matching)",
+    "settings.skillInstruction": "Instruction",
+    "settings.skillInstructionPlaceholder": "Tell the AI what to do...",
+    "settings.skillAddTitle": "Add Skill",
+    "settings.skillEditTitle": "Edit Skill",
+    "settings.skillAdded": "✅ Skill added",
+    "settings.skillUpdated": "✅ Skill updated",
+    "settings.skillDeleteMsg": "Are you sure you want to delete skill",
+
     // Notices
     "notice.noModel": "Please configure a model in settings first",
     "notice.noApiKey": "Please configure API Key in settings first",
     "notice.apiFail": "AI call failed:",
     "notice.connectionTestNeedsConfig": "Please fill all model fields before testing",
+
+    // Diff
+    "diff.accept": "Accept",
+    "diff.reject": "Reject",
+    "diff.accepted": "Applied",
+    "diff.rejected": "Rejected",
+    "diff.autoRejected": "Rejected (auto)",
+    "diff.applySuccess": "✅ Note updated",
+    "diff.fileNotFound": "⚠️ File no longer exists, cannot apply",
+    "diff.noChanges": "No changes",
   },
 };
 
@@ -207,10 +268,6 @@ export function i18n(key: string): string {
 
 export function setLanguage(lang: Lang): void {
   currentLang = lang;
-}
-
-export function getLanguage(): Lang {
-  return currentLang;
 }
 
 /**
