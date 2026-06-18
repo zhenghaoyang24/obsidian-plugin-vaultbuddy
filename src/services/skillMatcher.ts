@@ -305,6 +305,9 @@ function matchesSkill(keywords: string[], name: string, description: string): nu
     }
   }
 
+  // 至少匹配 2 个不同关键词才认为相关，避免单个常见词的误触发
+  if (matchCount < 2) return 0;
+
   return matchCount / keywords.length;
 }
 

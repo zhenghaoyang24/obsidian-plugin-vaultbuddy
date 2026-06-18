@@ -401,6 +401,11 @@ export class AIChatView extends ItemView {
         activeFile ?? undefined,
       );
 
+      // 提取匹配的技能名
+      if (activatedSkills.length > 0) {
+        activatedSkillName = activatedSkills[0].name;
+      }
+
       // 计算 prompt token 数（所有发送消息的内容）
       promptTokens = messages.reduce((sum, m) => sum + encode(m.content).length, 0);
 
@@ -471,7 +476,10 @@ export class AIChatView extends ItemView {
                   app: this.app,
                   onStateChange: (newState) => {
                     sdEditState!.state = newState;
-                    void this.storage.addMessage(this.currentConversation!.id, assistantMessageToSave!);
+                    void this.storage.addMessage(
+                      this.currentConversation!.id,
+                      assistantMessageToSave!,
+                    );
                   },
                   onFeedback: (fp, outcome) => this.addDiffFeedback(fp, outcome),
                 });
@@ -514,7 +522,8 @@ export class AIChatView extends ItemView {
             if (startMatch) {
               // DIFF_START 出现：渲染前面的文字，创建 diff 容器
               collectedEditStates = [];
-              const beforeText = fullContent.substring(0, startMatch.index)
+              const beforeText = fullContent
+                .substring(0, startMatch.index)
                 .replace(/```[a-zA-Z]*\s*\n?/g, "")
                 .replace(/<\/?tool_call>/g, "");
               contentEl.empty();
@@ -569,7 +578,10 @@ export class AIChatView extends ItemView {
                     app: this.app,
                     onStateChange: (newState) => {
                       sdEditState!.state = newState;
-                      void this.storage.addMessage(this.currentConversation!.id, assistantMessageToSave!);
+                      void this.storage.addMessage(
+                        this.currentConversation!.id,
+                        assistantMessageToSave!,
+                      );
                     },
                   });
                 }
@@ -651,6 +663,8 @@ export class AIChatView extends ItemView {
       if (error instanceof Error && error.name === "AbortError") {
         // 用户主动终止：移除思考动画，添加终止提示
         messageEl.removeClass("thinking");
+        const statusText = contentEl.querySelector(".thinking-status");
+        if (statusText) statusText.remove();
         const dots = contentEl.querySelector(".thinking-dots");
         if (dots) dots.remove();
       } else {
@@ -780,12 +794,12 @@ Examples: "how can I improve my note?", "what's wrong with this article?", "我�
 4. Only output an edit block after the user explicitly confirms
 
 ### Edit block format:
-Use this EXACT format. The start/end markers are Obsidian comments (\%\%) and MUST each be on their own line:
+Use this EXACT format. The start/end markers are Obsidian comments (%%) and MUST each be on their own line:
 \`\`\`
-\%\% DIFF_START {"path":"relative/path/to/note.md"} \%\%
+%% DIFF_START {"path":"relative/path/to/note.md"} %%
 {"startLine":3,"endLine":5,"old":"original line 3\\noriginal line 4\\noriginal line 5","new":"new line 3\\nnew line 4"}
 {"startLine":10,"endLine":10,"old":"original line 10","new":"new line 10"}
-\%\% DIFF_END \%\%
+%% DIFF_END %%
 \`\`\`
 
 Each line between the start and end markers is a JSON object representing one edit operation:
@@ -942,9 +956,10 @@ The file content in the context is shown with line numbers like [1], [2], etc. U
    */
   private addDiffFeedback(filePath: string, outcome: "applied" | "rejected"): void {
     if (!this.currentConversation) return;
-    const content = outcome === "applied"
-      ? `You applied the suggested changes to ${filePath}.`
-      : `You rejected the suggested changes to ${filePath}.`;
+    const content =
+      outcome === "applied"
+        ? `You applied the suggested changes to ${filePath}.`
+        : `You rejected the suggested changes to ${filePath}.`;
     const feedbackMsg: ChatMessage = { role: "assistant", content };
     void this.storage.addMessage(this.currentConversation.id, feedbackMsg);
     this.currentConversation.messages.push(feedbackMsg);
@@ -993,12 +1008,8 @@ The file content in the context is shown with line numbers like [1], [2], etc. U
         this.addNoteLinkHandlers(contentEl);
       }
     } else {
-      // 用户消息：含 HTML 标签时用 innerHtml 渲染（如 diff 反馈），否则用纯文本
-      if (/<[a-z][\s\S]*>/i.test(message.content)) {
-        contentEl.innerHTML = message.content;
-      } else {
-        contentEl.textContent = message.content;
-      }
+      // 用户消息：纯文本渲染
+      contentEl.textContent = message.content;
     }
 
     // 操作按钮和 token 信息（在气泡外面下方）
@@ -1028,6 +1039,38 @@ The file content in the context is shown with line numbers like [1], [2], etc. U
   }
 
   /**
+   * 从对话历史推导编辑块状态
+   * 优先扫描后续消息中的反馈消息（已持久化），没有反馈才使用 fallback
+   */
+  private getEditBlockState(
+    message: ChatMessage,
+    filePath: string,
+    fallback: "pending" | "accepted" | "rejected",
+  ): "pending" | "accepted" | "rejected" {
+    if (!this.currentConversation) return fallback;
+
+    const msgs = this.currentConversation.messages;
+    const msgIndex = msgs.indexOf(message);
+    if (msgIndex < 0) return fallback;
+
+    // 扫描当前消息之后的反馈消息
+    for (let i = msgIndex + 1; i < msgs.length; i++) {
+      const msg = msgs[i];
+      if (msg.role === "assistant") {
+        const content = msg.content;
+        if (content.includes(`applied the suggested changes to ${filePath}`)) {
+          return "accepted";
+        }
+        if (content.includes(`rejected the suggested changes to ${filePath}`)) {
+          return "rejected";
+        }
+      }
+    }
+
+    return fallback;
+  }
+
+  /**
    * 渲染包含 edit 块的消息（用于流式完成后的首次渲染和历史记录加载）
    * 将 edit 块替换为 Diff 组件，其余部分照常 Markdown 渲染
    */
@@ -1039,7 +1082,6 @@ The file content in the context is shown with line numbers like [1], [2], etc. U
     const editStates = message.editStates || [];
     const editRegex = /%%\s*DIFF_START\s+\{.*?\}\s*%%\s*\n[\s\S]*?\n\s*%%\s*DIFF_END\s*%%/;
 
-
     let remaining = message.content;
     let editIdx = 0;
 
@@ -1048,7 +1090,8 @@ The file content in the context is shown with line numbers like [1], [2], etc. U
       if (!match) break;
 
       // 渲染 edit 块前的文字
-      const before = remaining.substring(0, match.index)
+      const before = remaining
+        .substring(0, match.index)
         .replace(/```[a-zA-Z]*\s*\n?/g, "")
         .replace(/<\/?tool_call>/g, "");
       if (before.trim()) {
@@ -1058,10 +1101,16 @@ The file content in the context is shown with line numbers like [1], [2], etc. U
 
       // 获取对应的 editState
       const editState = editStates[editIdx];
-      const state = editState?.state ?? "rejected";
       const newContent = editState?.newContent ?? "";
       const filePath = editState?.path ?? block.path;
       const originalContent = editState?.originalContent ?? "";
+      // 从对话历史推导状态，而非依赖 editState.state（尚未持久化时可能丢失）
+      const derivedState = this.getEditBlockState(
+        message,
+        filePath,
+        editState?.state ?? "pending",
+      );
+      const state = derivedState;
 
       // 用保存的原始内容和新内容计算 diff
       const ops = parseEditOperations(block.body);
@@ -1090,8 +1139,11 @@ The file content in the context is shown with line numbers like [1], [2], etc. U
     }
 
     // 渲染剩余文字
-    if (remaining.trim()) {
-      await MarkdownRenderer.render(this.app, remaining, contentEl, "", this);
+    const cleanRemaining = remaining
+      .replace(/```[a-zA-Z]*\s*\n?/g, "")
+      .replace(/<\/?tool_call>/g, "");
+    if (cleanRemaining.trim()) {
+      await MarkdownRenderer.render(this.app, cleanRemaining, contentEl, "", this);
       this.addNoteLinkHandlers(contentEl);
     }
   }
@@ -1128,20 +1180,28 @@ The file content in the context is shown with line numbers like [1], [2], etc. U
   private async autoRejectPendingEdits(): Promise<void> {
     if (!this.currentConversation) return;
     const msgs = this.currentConversation.messages;
-    let changed = false;
+    const pendingEdits: Array<{ path: string }> = [];
     for (const msg of msgs) {
       if (msg.role !== "assistant" || !msg.editStates) continue;
       for (const edit of msg.editStates) {
         if (edit.state === "pending") {
           edit.state = "rejected";
-          changed = true;
+          pendingEdits.push({ path: edit.path });
         }
       }
     }
-    if (changed) {
-      // 更新最后一条消息的存储
-      await this.storage.saveConversation(this.currentConversation);
+    // 追加拒绝反馈消息
+    for (const pe of pendingEdits) {
+      const feedbackMsg: ChatMessage = {
+        role: "assistant",
+        content: `You rejected the suggested changes to ${pe.path}.`,
+      };
+      await this.storage.addMessage(this.currentConversation.id, feedbackMsg);
+      this.currentConversation.messages.push(feedbackMsg);
     }
+    // 始终保存当前对话，确保内存中的状态变更（用户已点接受/拒绝但异步保存未完成）
+    // 在切换对话前写入存储，防止返回时读到 stale 数据
+    await this.storage.saveConversation(this.currentConversation);
   }
 
   // ==================== 历史对话 ====================
